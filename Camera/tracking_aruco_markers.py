@@ -160,7 +160,7 @@ class ArucoTrack(Node):
 
                 orientation = -theta_3
 
-                centre = [id, x - self.origin.x, y - self.origin.y, orientation,middle]
+                centre = [id, x - self.origin.x, -(y - self.origin.y), orientation,middle]
                 self.centres_list.append(centre)
 
                 cv2.drawFrameAxes(self.frame_markers, self.cameraMatrix, self.distCoeffs, rotation_vectors[i], translation_vectors[i], 0.01)
@@ -223,11 +223,13 @@ class ArucoTrack(Node):
 
             positions = Pose()
 
-            positions.position.x = -pos[2] # could potentially be an earlier maths error, but just this works
-            positions.position.y = -pos[1]
+            positions.position.x = pos[1] # could potentially be an earlier maths error, but just this works
+            positions.position.y = pos[2]
             positions.orientation.z = pos[3]
 
-            # print(pos[0])
+            # print(pos)
+
+            # print(pos[1], pos[2])
 
             try: # see if there is a publishable node for that ID number
                 self.pub_dict[pos[0]].publish(positions)
@@ -235,17 +237,17 @@ class ArucoTrack(Node):
             except KeyError : # if the key doesn't exist than a new publisher with that key is created.
                 print(f'No publisher for robot{pos[0]}')
 
-            middle = Pose()
+            # middle = Pose()
 
-            middle.position.x = pos[4][0]
-            middle.position.y = pos[4][1]
-            middle.orientation.z = pos[3]
+            # middle.position.x = pos[4][0]
+            # middle.position.y = pos[4][1]
+            # middle.orientation.z = pos[3]
 
-            try: 
-                self.middle_pubs[pos[0]].publish(middle)
+            # try: 
+            #     self.middle_pubs[pos[0]].publish(middle)
 
-            except KeyError:
-                print(f"No publisher for robot{pos[0]}")
+            # except KeyError:
+            #     print(f"No publisher for robot{pos[0]}")
             
             
     def create_robot(self,ID):
