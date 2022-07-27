@@ -105,7 +105,7 @@ void i2c_recvStatus(int len)
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
-  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2;
+  kinematics.currentRotation = i2c_status_rx.theta;
 
   float angle = atan2(global_y, global_x);
 
@@ -163,7 +163,7 @@ void go_forward(float vel)
 void loop()
 {
 
-  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
+  float theta = kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
   float error = goal - theta;
   /*if (global_x == 0.0 && global_y == 0.0){
     go_forward(0.0);

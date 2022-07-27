@@ -4,6 +4,10 @@
 #ifndef _KINEMATICS_H
 #define _KINEMATICS_H
 #include "encoders.h"
+
+#define WHEEL_RADIUS 0.017
+#define ROBOT_DIAMETER 0.09
+
 // Class to track robot position.
 class Kinematics_c {
   public:
@@ -47,7 +51,7 @@ class Kinematics_c {
 
     float hallRatio = 358.3;
 
-    double pi = 3.14159265359;
+    // double pi = 3.14159265359;
 
     bool recordKinematics = true;
     
@@ -106,16 +110,16 @@ class Kinematics_c {
 
       // correct abnormalities
 
-      if(count_wheel_right_temp == count_wheel_left_temp + 1.0 || count_wheel_right_temp == count_wheel_left_temp + 2.0) count_wheel_right_temp = count_wheel_left_temp;
-      else if(count_wheel_left_temp == count_wheel_right_temp + 1.0 || count_wheel_left_temp == count_wheel_right_temp + 2.0) count_wheel_left_temp = count_wheel_right_temp;
+      if (count_wheel_right_temp == count_wheel_left_temp + 1.0 || count_wheel_right_temp == count_wheel_left_temp + 2.0) count_wheel_right_temp = count_wheel_left_temp;
+      else if (count_wheel_left_temp == count_wheel_right_temp + 1.0 || count_wheel_left_temp == count_wheel_right_temp + 2.0) count_wheel_left_temp = count_wheel_right_temp;
 
       
       
       // get difference in values compared to last saved ones
       count_difference_left = count_wheel_left_temp - count_wheel_left;
       count_difference_right = count_wheel_right_temp - count_wheel_right;
-      count_difference_left*=-1;
-      count_difference_right*=-1;
+      count_difference_left *= -1;
+      count_difference_right *= -1;
       // save new rotation values
       if(recordKinematics){
         count_wheel_right = count_wheel_right_temp;
@@ -129,10 +133,10 @@ class Kinematics_c {
 
 
 
-      double wheelRotationalAmt = -(((double)count_difference_left - (double)count_difference_right)/(hallRatio)) * 6.28318530718;
-      double wheelForwardAmt = ((double)(count_difference_left + count_difference_right)/(hallRatio));
+      double wheelRotationalAmt = -(((double)count_difference_right - (double)count_difference_left) / (hallRatio)) * 2 * PI;
+      double wheelForwardAmt = ((double)(count_difference_left + count_difference_right) / (hallRatio));
       // Xr = ((wheel radius * rotation velocity left) /2) + ((wheel radius * rotation velocity right) /2) * interval
-      Xr = (wheelForwardAmt * 0.034)/2.0;
+      Xr = (wheelForwardAmt * 2 * WHEEL_RADIUS) / 2.0;
       distance_moved += Xr * movementMultiplier;
       
       // Yr = 0
@@ -141,7 +145,7 @@ class Kinematics_c {
       //rotationalChange = ((0.017 * (count_difference_left / interval)) / (2.0* 0.045)) - ((0.017 * (count_difference_right / (interval))) / (2.0* 0.045));
       
       
-      float robotRotationalAmt = (0.017 * wheelRotationalAmt) / 0.09; 
+      float robotRotationalAmt = (WHEEL_RADIUS * wheelRotationalAmt) / ROBOT_DIAMETER; 
 
       //robotRotationalVelocity /= 3.14159265359;
 
@@ -153,11 +157,11 @@ class Kinematics_c {
       // 0i = 0i + 0r
       currentRotation += rotationalChange;
       currentRotationCutoff += rotationalChange;
-      if(currentRotationCutoff > 6.28318530718){
-        currentRotationCutoff = currentRotationCutoff - 6.28318530718;
+      if(currentRotationCutoff > 2 * PI){
+        currentRotationCutoff = currentRotationCutoff - 2 * PI;
       }
-      else if (currentRotationCutoff < -6.28318530718){
-        currentRotationCutoff = currentRotationCutoff + 6.28318530718;
+      else if (currentRotationCutoff < -2 * PI){
+        currentRotationCutoff = currentRotationCutoff + 2 * PI;
       }
       // convert local motion to global motion
       
