@@ -1,0 +1,64 @@
+{
+    "world_width" : 800,
+    "world_height" : 600,
+    "play_area_x" : 50,
+    "play_area_y": 100,
+    "play_area_width" : 750,
+    "play_area_height" : 500, 
+    "time_limit" : 5000,
+
+    "cam_width" : 2.4,
+    "cam_height" : 1.5,
+
+    "event_driven" : false,
+    "event_driven_lock_movements" : false,
+
+    "debug_dog_forces" : false,
+    "debug_sheep_forces" : false,
+    "debug_steering_points" : false,
+    "debug_sub_flocks" : false,
+    "debug_sheep_states" : false,
+    "debug_dog_states" : false,
+    
+    "empowerment_type" : 1,
+
+    "initial_sheep_positions" : [[200, 200], [220, 190], [190, 220], [400,400]],
+    "initial_dog_positions" : [[400, 500]],
+    "standby_positions" : [[100, 50], [150, 50], [200, 50], [250, 50], [300, 50], [350, 50], [400, 50], [450, 50], [500, 50], [550, 50], [600, 50], [650, 50], [700, 50], [125, 100], [175, 100], [225, 100], [275, 100], [325, 100], [375, 100]],
+    "pigsty_positions" : [[25, 50], [25, 75], [50, 50], [50, 75], [75, 50], [75, 75], [100, 50], [100, 75], [125, 50], [125, 75]], 
+
+    "target_position" : [695, 495],
+
+    "sheep_resulsion_from_dogs" : 30,
+    "sheep_repulsion_from_sheep" : 300,
+    "sheep_attraction_to_sheep" : 1,
+
+    "lambda_D" : 0.1,   
+    "lambda_S" : 0.6,
+    "lambda_G" : -1,
+
+    "no_of_sheep_in_social_group" : 3,
+    "sheep_vision_range" : 30,
+    "grazing_movement_chance" : 0.3,
+
+    "dog_forces_with_flock" : 1,
+    "dog_repulsion_from_dogs" : 0.2,
+    "dog_repulsion_from_sheep" : 0.1,
+    "dog_attraction_to_steering_point" : 4,
+    "dog_orbital_around_flock" : 8,
+    
+    "ticks_per_choice" : 5,
+    "collection_radius" : 30,
+    "max_number_of_dogs" : 5,
+
+    "driving_distance_from_flock_radius" : 20,
+    "collection_distance_from_target_sheep" : 10,
+
+    "realistic_agent_movement_markers" : true,
+    "realistic_agent_movement" : true,
+
+    "robot_dog_max_speed" : 0.75,
+    "robot_sheep_max_speed" : 0.5,
+    "robot_pig_max_speed" : 0.4,
+    "robot_standby_max_speed" : 1.0
+}
