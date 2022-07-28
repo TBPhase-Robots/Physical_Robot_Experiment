@@ -118,9 +118,12 @@ def calc_voronoi_partitioning(flock, pack):
 #end function
 
 def add_agent(agents, position, cfg, id, screen, simulationNode):
-    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
+    agent = Agent(position = position, id = id, cfg = cfg, rotation=0.0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
     agents.add(agent)
-    agent.role 
+
+    
+    agent.PublishForceToTopic(np.array([0.0,0.0]), screen)
+    # agent.role = 'agent'
     return id + 1
 
 def add_agent_callback(msg):
@@ -146,16 +149,15 @@ def DrawWorld(cfg):
     pygame.draw.rect(screen, colours.BLUE, pygame.Rect(cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
 
     for pos in cfg['initial_sheep_positions']:
-        pygame.draw.circle(screen, colours.WHITE, pos, 8)
+        pygame.draw.circle(screen, colours.WHITE, pos, 2)
 
     for pos in cfg['initial_dog_positions']:
-        pygame.draw.circle(screen, colours.BLUE, pos, 8)
+        pygame.draw.circle(screen, colours.BLUE, pos, 2)
 
     for pos in cfg['standby_positions']:
-        pygame.draw.circle(screen, colours.RED, pos, 8)
+        pygame.draw.circle(screen, colours.RED, pos, 2)
 
 
-    pygame.draw.line(screen, colours.GREEN, [207, 264], [287, 268], 5)
 
     #pygame.display.update()
     #pygame.display.flip()
@@ -163,7 +165,7 @@ def DrawWorld(cfg):
 
 
 # calls standard behaviour on all sheep and dog agents for simulation
-def ExperimentUpdateTimestep(agents, pack, flock, cfg):
+def ExperimentUpdateTimestep(pack, flock, cfg):
     if (len(pack) > 0):
         calc_voronoi_partitioning(flock, pack)
         for dog in pack:
@@ -177,18 +179,17 @@ def ExperimentUpdateTimestep(agents, pack, flock, cfg):
         for sheep in flock:
 
             sheep.SimulationUpdate_Sheep(screen, flock, pack, cfg)                  
-    for pig in pigs:
-        pig.DrawSelf(screen)
-    for agent in standby:
-        agent.DrawSelf(screen)
 
-def MoveToPointDecision(agent, movePos, cfg):
+def MoveToPointDecision(agent: Agent, movePos, cfg):
+    print(f'deciding to moving agent {agent.id}')
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 25):
+    if(np.linalg.norm(movePos - agentPos) > 130):
+        print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
+        print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
 def StandbySetupUpdateTimestep(agents, cfg):
@@ -234,8 +235,8 @@ def SortAgentsByRole():
             #print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - DOG")
 
             # TODO - remove setting agent colour at start
-            colourMsg.r = 0.3
-            colourMsg.g = 0.3
+            colourMsg.r = 0.8
+            colourMsg.g = 0.8
             colourMsg.b = 1.0
             agent.colourPublisher.publish(colourMsg)
 
@@ -301,12 +302,17 @@ def main(show_empowerment=False):
     robot_sheep_speed = cfg['robot_sheep_max_speed']
     robot_standby_speed = cfg['robot_standby_max_speed']
 
+
+
+
     end_game = False
 
     pygame.init()
 
    
     screen = pygame.display.set_mode([cfg['world_width'] + 80,cfg['world_height']])
+
+    # when we start up the simulation, everything should be normalised to a 900 board
 
     agent_id = 0
 
@@ -352,7 +358,7 @@ def main(show_empowerment=False):
         
         
 
-        rclpy.spin_once(simulationNode, timeout_sec=0.05)
+        rclpy.spin_once(simulationNode, timeout_sec=0.1)
 
 
         # look out for commands send to this script
@@ -375,14 +381,6 @@ def main(show_empowerment=False):
         if(sendUpdates or not cfg['event_driven']):
             if(state == "standby_setup_loop"):
                 StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
 
             if(state == "setup_start"):
 
@@ -449,15 +447,7 @@ def main(show_empowerment=False):
                     MoveToPointDecision(agent = sheep, movePos = np.array(pos), cfg = cfg)
                 # sheep.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
                     i += 1
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
+            
             
             if(state == "dog_setup_loop"):
                 # get the list of positions for starting dogs to move to
@@ -467,14 +457,6 @@ def main(show_empowerment=False):
                     pos = dogPositions[i]
                     MoveToPointDecision(agent = dog, movePos = np.array(pos), cfg = cfg)
                     i += 1
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
             
             if(state == "pig_setup_loop"):
                 # get the list of positions for the unused pigs to move to
@@ -485,20 +467,10 @@ def main(show_empowerment=False):
                     MoveToPointDecision(agent = pig, movePos = np.array(pos), cfg = cfg)
                     i += 1
 
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
-
             elif(state == "experiment"):
-                ExperimentUpdateTimestep(agents = agents, pack = pack, flock=flock,  cfg=cfg)
+                ExperimentUpdateTimestep(pack = pack, flock=flock,  cfg=cfg)
                 StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
                 for pig in pigs:
-                    pig.DrawSelf(screen = screen)
                     pig.HaltAgent(screen)
             for agent in agents:
                     agent.DrawSelf(screen)
