@@ -167,15 +167,7 @@ class Agent(pygame.sprite.Sprite):
 
         self.hasNewRotation = True
 
-    # call this function from central poller
-    def RosUpdate(self):
-        
-       # pygame.draw.line(screen, colours.BLUE, [200.0, 300.0], [300.0, 200.0], 5)
-       # pygame.draw.circle(screen, colours.DGREEN, [ 300, 300], 20)
-        x = 2 + 1
-        #rclpy.spin_once(self.simulationNode, timeout_sec=0)
-       # print("ROS UPDATE")
-       # print(self.screen)
+
 
 
     
@@ -284,13 +276,15 @@ class Agent(pygame.sprite.Sprite):
 
         repulsionForce = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
         moveForce = force + repulsionForce
-        self.DrawSelf(screen)
+        #self.DrawSelf(screen)
         # if the simulation is running using real world robots, don't move the agent
         if(not cfg['event_driven_lock_movements']):
             self.position = np.add(self.position, moveForce*5)
         # publish force to robot topic
         self.PublishForceToTopic(moveForce, screen) 
-        pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
+
+        if(cfg['realistic_agent_movement_markers']):
+            pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
 
 
 

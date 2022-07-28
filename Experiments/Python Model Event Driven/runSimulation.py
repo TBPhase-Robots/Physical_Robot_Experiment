@@ -329,12 +329,7 @@ def main(show_empowerment=False):
 
 
 
-    ## add n agents
-
-    
-
-
-    # put all robots into standby.
+    # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
 
     SortAgentsByRole()
@@ -355,13 +350,6 @@ def main(show_empowerment=False):
         DrawWorld(cfg=cfg)
 
         
-        
-        # time.sleep(0.01)
-
-
-        # poll for poses for each agent
-        for agent in agents:
-            agent.RosUpdate()
         
 
         rclpy.spin_once(simulationNode, timeout_sec=0.05)
@@ -512,8 +500,7 @@ def main(show_empowerment=False):
                 for pig in pigs:
                     pig.DrawSelf(screen = screen)
                     pig.HaltAgent(screen)
-            else:
-                for agent in agents:
+            for agent in agents:
                     agent.DrawSelf(screen)
         # if we are not cleared to send updates due to no incoming data (if in event driven mode), then draw all agents
         else:
