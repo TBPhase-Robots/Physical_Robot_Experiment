@@ -18,12 +18,21 @@ from ProtoInputHandler import ProtoInputHandler
 from model.Listener import Listener
 from model.CommandListener import CommandListener
 from model.AgentListener import AgentListener
+
+from model.SimulationNode import SimulationNode
+
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Float64
 from std_msgs.msg import ColorRGBA
 from std_msgs.msg import Int32
+
+from geometry_msgs.msg import Pose, Vector3
+
+from std_msgs.msg import Float64, Int32, String
+
+from std_msgs.msg import ColorRGBA
 
 
 
@@ -44,8 +53,8 @@ agents = pygame.sprite.Group()
 
 
 config_name='defaultConfig'
-
-
+rclpy.init(args=None)
+simulationNode = SimulationNode()
 
 
 with open(f"experiment_config_files/{config_name}.json") as json_file:
@@ -108,8 +117,8 @@ def calc_voronoi_partitioning(flock, pack):
         sheep.closest_dog.add_sheep_to_sub_flock(sheep)
 #end function
 
-def add_agent(agents, position, cfg, id, screen):
-    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen)
+def add_agent(agents, position, cfg, id, screen, simulationNode):
+    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
     agents.add(agent)
     agent.role 
     return id + 1
@@ -124,7 +133,7 @@ def add_agent_callback(msg):
 
     randx = random.uniform(50, 300)
     randy = random.uniform(50, 300)
-    add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, camWidth=cfg['cam_width'], camHeight=cfg['cam_height'], worldWidth=cfg['world_width'], worldHeight=cfg['world_height'], screen=screen)
+    add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, screen=screen, simulationNode=simulationNode)
 
 
 
@@ -221,50 +230,50 @@ def SortAgentsByRole():
         if(agent.role == "dog"):
             pack.add(agent)
             msg.data = robot_dog_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
             #print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - DOG")
 
             # TODO - remove setting agent colour at start
             colourMsg.r = 0.3
             colourMsg.g = 0.3
             colourMsg.b = 1.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
 
         if(agent.role == "sheep"):
             flock.add(agent)
             msg.data = robot_sheep_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
             #print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - SHEEP")
             # TODO - remove setting agent colour at start
             colourMsg.r = 1.0
             colourMsg.g = 1.0
             colourMsg.b = 1.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - SHEEP")
 
         if(agent.role == "pig"):
             pigs.add(agent)
             msg.data = robot_pig_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
            # print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - PIG")
 
             # TODO - remove setting agent colour at start
             colourMsg.r = 1.0
             colourMsg.g = 0.0
             colourMsg.b = 0.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - PIG")
         if(agent.role == "standby"):
             standby.add(agent)
             msg.data = robot_standby_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
           #  print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - STANDBY")
 
             # TODO - remove setting agent colour at start
             colourMsg.r = 0.0
             colourMsg.g = 1.0
             colourMsg.b = 0.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - STANDBY")
 
         
@@ -273,7 +282,7 @@ def SortAgentsByRole():
 
 def main(show_empowerment=False):
 
-    rclpy.init(args=None)
+    
 
 
 
@@ -305,15 +314,18 @@ def main(show_empowerment=False):
     commandListenerTopicName = "/controller/command"
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
+
+
     
+
     # define the state command listener:
-    commandListener = CommandListener(commandListenerTopicName, CommandListenerCallback) 
+    commandListener = simulationNode.CreateStringListener(commandListenerTopicName, CommandListenerCallback) 
 
     # define the dispatch listener
-    dispatchListener = CommandListener(dispatchListenerTopicName, DispatchCallback)
+    dispatchListener = simulationNode.CreateStringListener(dispatchListenerTopicName, DispatchCallback)
 
     # define the add agent listener
-    agentListener = AgentListener(agentListenerTopicName, add_agent_callback)
+    agentListener = simulationNode.CreateAgentListener(agentListenerTopicName, add_agent_callback)
 
 
 
@@ -352,12 +364,15 @@ def main(show_empowerment=False):
             agent.RosUpdate()
         
 
+        rclpy.spin_once(simulationNode, timeout_sec=0.05)
+
+
         # look out for commands send to this script
-        rclpy.spin_once(commandListener, timeout_sec=0.01)
+        #rclpy.spin_once(commandListener, timeout_sec=0.01)
         # check if user wants to dispatch/recall dogs
-        rclpy.spin_once(dispatchListener, timeout_sec=0.01)
+        #rclpy.spin_once(dispatchListener, timeout_sec=0.01)
         # check if we have add/remove agents
-        rclpy.spin_once(agentListener, timeout_sec=0.01)
+        #rclpy.spin_once(agentListener, timeout_sec=0.01)
 
         # draw world 
 

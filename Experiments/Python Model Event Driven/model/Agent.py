@@ -27,6 +27,7 @@ from model.Listener import Listener
 from model.VectorPublisher import VectorPublisher
 from model.FloatPublisher import FloatPublisher
 from model.ColourPublisher import ColourPublisher
+from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
 
@@ -34,7 +35,7 @@ from geometry_msgs.msg import Pose, Vector3
 class Agent(pygame.sprite.Sprite):
     
     
-    def __init__(self, position, id, cfg, rotation, poseAgentCallback, role, screen) -> None:
+    def __init__(self, position, id, cfg, rotation, poseAgentCallback, role, screen, simulationNode) -> None:
         
         pygame.sprite.Sprite.__init__(self)
         
@@ -54,12 +55,13 @@ class Agent(pygame.sprite.Sprite):
         self.screen = screen
         self.lastRotation = rotation
         self.hasNewRotation= False
+        self.simulationNode = simulationNode
 
         # width ratio = worldWidth / camera width
-        self.widthRatio = self.worldWidth / self.camWidth
+        self.widthRatio = self.worldWidth / self.cameraWidth
 
         # height ratio = worldheight / camera height
-        self.heightRatio = self.worldHeight / self.camHeight
+        self.heightRatio = self.worldHeight / self.cameraHeight
 
         # dog
         self.sub_flock = pygame.sprite.Group()
@@ -81,16 +83,17 @@ class Agent(pygame.sprite.Sprite):
 
         self.topicName = f'/robot{id}/vectors'
         print("self.topic_name: ", self.topicName)
-        self.publisher = VectorPublisher(self.topicName, self.id)
+        self.vectorPublisher = self.simulationNode.CreateVectorPublisher(self.topicName)
 
         self.colourTopicName = f'/robot{id}/colours'
-        self.colourPublisher = ColourPublisher(self.colourTopicName, self.id)
-
+        self.colourPublisher = self.simulationNode.CreateColourPublisher(self.colourTopicName)
+        
 
         # NOTE 
         # THIS IS NOT YET IMPLEMENTED ON THE ROBOT END
         self.floatTopicName = f'/robot{id}/speed'
-        self.maxSpeedPublisher = FloatPublisher(self.floatTopicName, self.id)
+        self.maxSpeedPublisher = self.simulationNode.CreateFloatPublisher(self.floatTopicName)
+        
         
 
     #end function
@@ -169,8 +172,8 @@ class Agent(pygame.sprite.Sprite):
         
        # pygame.draw.line(screen, colours.BLUE, [200.0, 300.0], [300.0, 200.0], 5)
        # pygame.draw.circle(screen, colours.DGREEN, [ 300, 300], 20)
-
-        rclpy.spin_once(self.listener, timeout_sec=0)
+        x = 2 + 1
+        #rclpy.spin_once(self.simulationNode, timeout_sec=0)
        # print("ROS UPDATE")
        # print(self.screen)
 
@@ -230,8 +233,9 @@ class Agent(pygame.sprite.Sprite):
     # the force is scaled to the screen space - camera space ratio
     def PublishForceToTopic(self, force, screen):
         vForce = Vector3()
-        vForce.y = force[0] 
-        vForce.x = force[1] 
+        # switched at some point
+        vForce.x = force[0] 
+        vForce.y = force[1] 
         if(self.hasNewRotation):
             vForce.z = self.rotation
         
@@ -239,8 +243,8 @@ class Agent(pygame.sprite.Sprite):
         self.hasNewRotation = False
         print("publishing Vforce ", vForce, " to ", self.topicName)
 
-        self.publisher.pub.publish(vForce)
-        pygame.draw.line(screen, colours.BLUE, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 5)
+        self.vectorPublisher.publish(vForce)
+        #pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
