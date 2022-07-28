@@ -5,6 +5,9 @@ then make a new ros topics for each tag.
 """
 
 import sys
+sys.path.append('..')
+
+import sys
 import cv2
 from cv2 import cvtColor
 from cv2 import aruco
@@ -26,6 +29,8 @@ from geometry_msgs.msg import Vector3
 from std_msgs.msg import Int32
 from std_msgs.msg import String
 
+from Logging.ros_logger import RosLogger
+
 special_markers = [100, 101, 102, 103]
 
 
@@ -35,18 +40,21 @@ class ArucoTrack(Node):
 
     def __init__(self, device):
 
+
         # initiate ros parts
-        super().__init__(node_name="camera_tracker")
+        super().__init__(node_name="camera_tracker")#
+
+        self.logger = RosLogger(self, "camera_tracker")
 
         if not os.path.exists('./CameraCalibration.pckl'):
-            print("Calibration file not found.")
+            self.logger.error("Calibration file not found.")
             exit()
         else:
             f = open('./CameraCalibration.pckl', 'rb')
             self.cameraMatrix, self.distCoeffs, _, _ = pickle.load(f)
             f.close()
             if self.cameraMatrix is None or self.distCoeffs is None:
-                print("Invalid calibration file.")
+                self.logger.error("Invalid calibration file.")
                 exit()
 
         # as ArUco tags have IDs, the publisher objects are stored in a dictionary with their ID as the key
@@ -151,7 +159,6 @@ class ArucoTrack(Node):
                 # cv2.circle(self.frame_markers,(centre[1],centre[2]),5,(255,0,0),2) # plots a circle in the middle of the marker 
                 rotation_matrix = np.identity(3)
                 cv2.Rodrigues(rotation_vectors[i], rotation_matrix)
-                # print(rotation_matrix)
 
                 theta_1 = np.arctan2(rotation_matrix[2, 1], rotation_matrix[2, 2])
                 s_1 = np.sin(theta_1)
@@ -183,7 +190,7 @@ class ArucoTrack(Node):
         return orientation
 
     def added_robot_callback(self, msg: Int32):
-        print(f'new robot: {msg.data}')
+        self.logger.log(f'new robot: {msg.data}')
         self.active_robots.append(msg.data)
         self.create_robot(msg.data)
 
@@ -208,8 +215,6 @@ class ArucoTrack(Node):
         #     vert_pixels_from_centre = centre[1] - (self.vert_res/2)
         #     horiz_pixels_from_centre = centre[2] - (self.horiz_res/2)
 
-        #     print(vert_pixels_from_centre, horiz_pixels_from_centre)
-
         #     vert_pos = vert_pixels_from_centre / (self.vert_res/2) * (self.vert_dist_ground/2)
         #     horiz_pos = horiz_pixels_from_centre / (self.horiz_res/2) * (self.horiz_dist_ground/2)
 
@@ -227,15 +232,11 @@ class ArucoTrack(Node):
             positions.position.y = pos[2]
             positions.orientation.z = pos[3]
 
-            # print(pos)
-
-            # print(pos[1], pos[2])
-
             try: # see if there is a publishable node for that ID number
                 self.pub_dict[pos[0]].publish(positions)
 
             except KeyError : # if the key doesn't exist than a new publisher with that key is created.
-                print(f'No publisher for robot{pos[0]}')
+                self.logger.warn(f'No publisher for robot{pos[0]}')
 
             # middle = Pose()
 
@@ -247,7 +248,7 @@ class ArucoTrack(Node):
             #     self.middle_pubs[pos[0]].publish(middle)
 
             # except KeyError:
-            #     print(f"No publisher for robot{pos[0]}")
+            #     self.logger.warn(f"No publisher for robot{pos[0]}")
             
             
     def create_robot(self,ID):
@@ -262,7 +263,7 @@ class ArucoTrack(Node):
 
     def shutdown_callback(self):
 
-        print("shutdown")
+        self.logger.log("shutting down")
 
         self.cam.release()
 
