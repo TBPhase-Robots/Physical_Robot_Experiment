@@ -1,3 +1,7 @@
+
+import sys
+sys.path.append('..')
+
 import queue
 from turtle import position
 from bs4 import Tag
@@ -17,6 +21,8 @@ from std_msgs.msg import String, Int32
 from typing import List
 
 import numpy as np
+
+from Logging.ros_logger import RosLogger
 
 class Position():
     x: float = 0.0
@@ -52,6 +58,8 @@ class forward_or_back(Node):
         # rospy.init_node("hello_world")
         super().__init__("hello_world")
 
+        self.logger = RosLogger(self, 'hello_world') 
+
         # rospy.on_shutdown(self.shutdown)
 
         # self.robot_ID = rospy.Subscriber("/global/robots/added",Int32,callback=self.get_IDs)
@@ -64,14 +72,14 @@ class forward_or_back(Node):
 
             if len(self.robots) == 0:
             # elif len(self.robot_pos) == 0: # waits until at least a singular bit of data has been recieved has been idenfied
-                 print("No robots")
+                pass
             else:
                 self.robot_control()
 
  
     def get_IDs(self,msg):
 
-        print("Recieved ID: ", msg.data)
+        self.logger.log("Recieved ID: ", msg.data)
         
         new_robot = Robot()
         new_robot.id = msg.data
@@ -125,11 +133,8 @@ class forward_or_back(Node):
             # message.x = new_vec[0]
             # message.y = new_vec[1]
 
-            # print(new_vec)
-
             # try:
             # if(not message.x == 0.0):
-            # print(message.x, message.y, message.z)
             robot.publisher.publish(message)
             # except KeyError:
             #     self.new_publisher(robot)
