@@ -46,11 +46,14 @@ agents = pygame.sprite.Group()
 config_name='defaultConfig'
 
 
+
+
 with open(f"experiment_config_files/{config_name}.json") as json_file:
     cfg = json.load(json_file)
 
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
+
 
 # controller callback is called by an agent whenever it has successfully updated its state via ROS pose
 def ControllerCallback(data):
@@ -105,14 +108,16 @@ def calc_voronoi_partitioning(flock, pack):
         sheep.closest_dog.add_sheep_to_sub_flock(sheep)
 #end function
 
-def add_agent(agents, position, cfg, id, camWidth, camHeight, worldWidth, worldHeight, screen):
-    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", camWidth=camWidth, camHeight=camHeight, worldWidth=worldWidth, worldHeight=worldHeight, screen = screen)
+def add_agent(agents, position, cfg, id, screen):
+    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen)
     agents.add(agent)
     agent.role 
     return id + 1
 
 def add_agent_callback(msg):
     global agents
+   
+    
     print("========= callback done")
     print(msg)
     new_id = msg.data
@@ -140,7 +145,12 @@ def DrawWorld(cfg):
     for pos in cfg['standby_positions']:
         pygame.draw.circle(screen, colours.RED, pos, 8)
 
-    pygame.display.flip()
+
+    pygame.draw.line(screen, colours.GREEN, [207, 264], [287, 268], 5)
+
+    #pygame.display.update()
+    #pygame.display.flip()
+
 
 
 # calls standard behaviour on all sheep and dog agents for simulation
@@ -286,6 +296,7 @@ def main(show_empowerment=False):
 
     pygame.init()
 
+   
     screen = pygame.display.set_mode([cfg['world_width'] + 80,cfg['world_height']])
 
     agent_id = 0
@@ -294,6 +305,7 @@ def main(show_empowerment=False):
     commandListenerTopicName = "/controller/command"
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
+    
     # define the state command listener:
     commandListener = CommandListener(commandListenerTopicName, CommandListenerCallback) 
 
@@ -306,10 +318,7 @@ def main(show_empowerment=False):
 
 
     ## add n agents
-    for i in range (0):
-        # adds agents with role agent (un initialised)
-        #camWidth, camHeight, worldWidth, worldHeight
-        agent_id = add_agent(agents = agents, position = np.array([30 + (i*15), 20]), cfg = cfg, id = agent_id, camWidth = cfg['cam_width'], camHeight = cfg['cam_height'], worldWidth = cfg['world_width'], worldHeight = cfg['world_height'], screen=screen)
+
     
 
 
@@ -326,9 +335,17 @@ def main(show_empowerment=False):
     
     
     while (not end_game):
+        for event in pygame.event.get():
+            if event.type==QUIT:
+                pygame.quit()
+                sys.exit()
 
-        pygame.display.update()
-        time.sleep(0.01)
+        DrawWorld(cfg=cfg)
+
+        
+        
+        # time.sleep(0.01)
+
 
         # poll for poses for each agent
         for agent in agents:
@@ -343,7 +360,6 @@ def main(show_empowerment=False):
         rclpy.spin_once(agentListener, timeout_sec=0.01)
 
         # draw world 
-        DrawWorld(cfg=cfg)
 
         if(postedUpdates > 0):
             sendUpdates = True
@@ -489,6 +505,9 @@ def main(show_empowerment=False):
             
             for agent in agents:
                 agent.DrawSelf(screen)
+
+        #pygame.display.update()
+        pygame.display.flip()
 
 
             
