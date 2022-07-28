@@ -20,7 +20,7 @@ Kinematics_c kinematics;
 #define R_DIR_PIN 15
 
 float global_x = 0;
-float global_y = 10;
+float global_y = 0;
 float goal = 0;
 
 // Data to send(tx) and receive(rx)
@@ -224,6 +224,8 @@ void loop()
         }
         go_forward(speed);
       }
+    } else {
+      go_forward(0);
     }
   }
 
