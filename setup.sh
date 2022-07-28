@@ -6,10 +6,10 @@ ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888 &
 python3 Server/robot_server.py &
 
 pushd Camera
-python3 tracking_aruco_markers.py &
+python3 tracking_aruco_markers.py $1 &
 popd
 
-python3 Experiments/Hello_World/hello_world_central_program.py &
+# python3 Experiments/Hello_World/hello_world_central_program.py &
 
 read
 
