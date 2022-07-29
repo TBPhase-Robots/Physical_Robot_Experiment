@@ -22,7 +22,7 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500], [200, 300]],
+    "initial_sheep_positions" : [[400, 500]],
     "initial_dog_positions" : [[440, 200]],
     "standby_positions" : [[150, 100], [200, 100], [250, 100], [300, 100], [350, 100]],
     "pigsty_positions" : [[25, 50], [25, 75], [50, 50], [50, 75], [75, 50], [75, 75], [100, 50], [100, 75], [125, 50], [125, 75]], 
