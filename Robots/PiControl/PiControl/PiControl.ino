@@ -19,8 +19,11 @@ Kinematics_c kinematics;
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-float global_x = 0;
-float global_y = 0;
+#define POSE_PACKET 0
+#define FORCE_PACKET 1
+
+float force_x = 0;
+float force_y = 0;
 float goal = 0;
 
 // Data to send(tx) and receive(rx)
@@ -35,6 +38,7 @@ typedef struct i2c_status
   float y;       // 4 bytes
   float theta;   // 4 bytes
   int8_t status; // 1 byte
+  int8_t packet_type; // 1 byte
 } i2c_status_t;
 #pragma pack()
 
@@ -81,9 +85,9 @@ void i2c_sendStatus()
 {
 
   // Populate our current status
-  i2c_status_tx.x = 123.456;
-  i2c_status_tx.y = 789.1011;
-  i2c_status_tx.theta = 12.13;
+  i2c_status_tx.x = kinematics.x_global;
+  i2c_status_tx.y = kinematics.y_global;
+  i2c_status_tx.theta = kinematics.currentRotation;
   i2c_status_tx.status--; // debugging
 
   // Send up
@@ -103,17 +107,25 @@ void i2c_recvStatus(int len)
   // setLeftMotor(i2c_status_rx.x);
   // setRightMotor(i2c_status_rx.y);
 
-  global_x = i2c_status_rx.x;
-  global_y = i2c_status_rx.y;
-  kinematics.currentRotation = i2c_status_rx.theta;
+  if (i2c_status_rx.packet_type == FORCE_PACKET) {
+    force_x = i2c_status_rx.x;
+    force_y = i2c_status_rx.y;
 
-  float angle = atan2(global_y, global_x);
+    float angle = atan2(force_y, force_x);
+    Serial.println((String) "Angle" + angle);
 
-  Serial.println((String) "Angle" + angle);
+    goal = angle;
+    Serial.println((String) "goal " + goal);
+  }
+  else if (i2c_status_rx.packet_type == POSE_PACKET) {
+    kinematics.x_global = i2c_status_rx.x;
+    kinematics.y_global = i2c_status_rx.y;
+    kinematics.currentRotation = i2c_status_rx.theta;
+  }
 
-  // goal = -kinematics.currentRotation + atan2(global_y,global_x) ;
-  goal = angle;
-  Serial.println((String) "goal " + goal);
+
+
+  // goal = -kinematics.currentRotation + atan2(force_y,force_x) ;
 }
 
 void setup()
@@ -204,9 +216,9 @@ void loop()
   else
   {
     set_z_rotation(0);
-    if (global_x * global_x + global_y * global_y > 0.001)
+    if (force_x * force_x + force_y * force_y > 0.001)
     {
-      float speed = sqrt(global_x * global_x + global_y * global_y);
+      float speed = sqrt(force_x * force_x + force_y * force_y);
       if (speed > MAX_SPEED) {
         go_forward(MAX_SPEED * SPEED_SCALE);
       }
@@ -225,8 +237,8 @@ void loop()
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "x: " + global_x);
-  Serial.println((String) "y:" + global_y);
+  Serial.println((String) "x: " + force_x);
+  Serial.println((String) "y:" + force_y);
 
   kinematics.updateLoop();
   delay(100);

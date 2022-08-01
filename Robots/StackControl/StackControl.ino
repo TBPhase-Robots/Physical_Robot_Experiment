@@ -19,6 +19,7 @@
 #include <std_msgs/msg/int64.h>
 #include <std_msgs/msg/color_rgba.h>
 #include <geometry_msgs/msg/vector3.h>
+#include <geometry_msgs/msg/pose.h>
 #include <lifecycle_msgs/msg/state.h>
 #include <lifecycle_msgs/srv/get_state.h>
 
@@ -38,6 +39,9 @@
 
 #define MAX_HANDLES 10
 
+#define POSE_PACKET 0
+#define FORCE_PACKET 1
+
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
 // Needs to match the master device
@@ -47,6 +51,7 @@ typedef struct i2c_status {
   float y;                  // 4 bytes
   float theta;              // 4 bytes
   uint8_t status;           // 1 byte
+  uint8_t packet_type;           // 1 byte
 } i2c_status_t;
 #pragma pack()
 
@@ -60,6 +65,9 @@ std_msgs__msg__Bool heartbeat_msg;
 
 rcl_subscription_t vector_subscriber;
 geometry_msgs__msg__Vector3 vector_msg;
+
+rcl_subscription_t pose_subscriber;
+geometry_msgs__msg__Pose pose_msg;
 
 rcl_subscription_t marker_subscriber;
 std_msgs__msg__Int64 marker_msg;
@@ -126,19 +134,31 @@ void vector_callback(const void * msgin)
   //  Cast received message to vector
   const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
 
-  //  Converts message to a string
-  char s[32];
-  sprintf(s, "Received: %f\0", msg->x);
-
-  // //  Prints message to the screen
-  // M5.lcd.clear();
-  // M5.lcd.drawString(s, 0, 0);
-
   //  Converts message to i2c_status
   i2c_status_tx.x = msg->x;
   i2c_status_tx.y = msg->y;
   i2c_status_tx.theta = msg->z;
   i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = FORCE_PACKET;
+
+  //  Sends i2c_status to the 3Pi
+  Wire.beginTransmission(ROBOT_I2C_ADDR);
+  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.endTransmission();
+}
+
+// Handles vector messages recieved from a ROS subscription
+void pose_callback(const void * msgin)
+{
+  //  Cast received message to vector
+  const geometry_msgs__msg__Pose * msg = (const geometry_msgs__msg__Pose *)msgin;
+
+  //  Converts message to i2c_status
+  i2c_status_tx.x = msg->position.x;
+  i2c_status_tx.y = msg->position.y;
+  i2c_status_tx.theta = msg->orientation.z;
+  i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = POSE_PACKET;
 
   //  Sends i2c_status to the 3Pi
   Wire.beginTransmission(ROBOT_I2C_ADDR);
@@ -229,6 +249,16 @@ void configure_robot() {
     vector_topic_name));
   handle_count++;
 
+  //  Subscribe to the vector ROS topic, using Vector3 messages
+  char pose_topic_name[32];
+  sprintf(pose_topic_name, "/robot%d/pose", id);
+  RCCHECK(rclc_subscription_init_default(
+    &pose_subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
+    pose_topic_name));
+  handle_count++;
+
   //  Subscribe to the marker ROS topic, using Int64 messages
   char marker_topic_name[32];
   sprintf(marker_topic_name, "/robot%d/markers", id);
@@ -254,6 +284,11 @@ void configure_robot() {
   RCCHECK(rclc_executor_add_subscription(
     &executor, &vector_subscriber, &vector_msg,
     &vector_callback, ON_NEW_DATA));
+
+  //  Adds the pose subscription to the executor
+  RCCHECK(rclc_executor_add_subscription(
+    &executor, &pose_subscriber, &pose_msg,
+    &pose_callback, ON_NEW_DATA));
   
   //  Adds the marker subscription to the executor
   RCCHECK(rclc_executor_add_subscription(
