@@ -160,38 +160,31 @@ void go_forward(float vel)
   setRightMotor(vel);
 }
 
+float between_pi(float angle) {
+  while (abs(angle) > PI)
+  {
+    if (angle > 0)
+    {
+      angle -= 2 * PI;
+    }
+    else
+    {
+      angle += 2 * PI;
+    }
+  }
+
+  return angle;
+}
+
 void loop()
 {
 
   float theta = kinematics.currentRotation; 
   float error = goal - theta;
-  /*if (global_x == 0.0 && global_y == 0.0){
-    go_forward(0.0);
-  }
-  else{*/
-  while (abs(theta) > PI)
-  {
-    if (theta > 0)
-    {
-      theta -= 2 * PI;
-    }
-    else
-    {
-      theta += 2 * PI;
-    }
-  }
 
-  if (abs(error) > PI)
-  {
-    if (error > 0)
-    {
-      error -= 2 * PI;
-    }
-    else
-    {
-      error += 2 * PI;
-    }
-  }
+  theta = between_pi(theta);
+  error = between_pi(error);
+
   if (abs(error) > 0.2)
   {
     float limit = 0.75;
