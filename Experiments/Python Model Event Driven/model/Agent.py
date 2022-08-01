@@ -98,6 +98,22 @@ class Agent(pygame.sprite.Sprite):
         
 
     #end function
+    
+    def SetAgentConfig(self, newCfg):
+        self.cfg = newCfg
+
+        self.cameraWidth = newCfg['cam_width']
+        self.cameraHeight = newCfg['cam_height']
+        self.worldWidth = newCfg['world_width']
+        self.worldHeight = newCfg['world_height']
+
+        # width ratio = worldWidth / camera width
+        self.widthRatio = self.worldWidth / self.cameraWidth
+
+        # height ratio = worldheight / camera height
+        self.heightRatio = self.worldHeight / self.cameraHeight
+
+        print("successfully changed config of agent ", self.id)
 
     def AgentCallback(self, msg):
         # decode position and rotation data, set agent position and rotation
@@ -213,7 +229,7 @@ class Agent(pygame.sprite.Sprite):
         elif(self.role == "sheep"):
             pygame.draw.circle(screen, colours.WHITE, self.position, 30)
         elif(self.role == "standby"):
-            pygame.draw.circle(screen, colours.BLUE, self.position, 30)
+            pygame.draw.circle(screen, colours.GREEN, self.position, 30)
         elif(self.role == "pig"):
             pygame.draw.circle(screen, colours.PINK, self.position, 30)
         else:
@@ -237,6 +253,7 @@ class Agent(pygame.sprite.Sprite):
 
         self.vectorPublisher.publish(vForce)
         pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
+        print("sending rotation ", vForce.z, " to robot ", self.id)
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
@@ -276,13 +293,13 @@ class Agent(pygame.sprite.Sprite):
             force*= forceMultiplier
 
         # calculate repulsion force from all other agents
-        F_D_D = np.zeros(2)
+        F_A = np.zeros(2)
         for agent in agents:
             if (agent.id != self.id):
                 if (np.linalg.norm((self.position) - (agent.position)) < moveRepelDistance):
-                    F_D_D = np.add(F_D_D, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
+                    F_A = cfg['agent_repulsion_from_agents'] * np.add(F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
 
-        repulsionForce = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
+        repulsionForce = F_A + (0.75 * np.array([F_A[1], -F_A[0]]))
         moveForce = force + repulsionForce
         #self.DrawSelf(screen)
         # if the simulation is running using real world robots, don't move the agent
