@@ -66,7 +66,10 @@ std_msgs__msg__Bool heartbeat_msg;
 rcl_subscription_t vector_subscriber;
 geometry_msgs__msg__Vector3 vector_msg;
 
-rcl_subscription_t pose_subscriber;
+rcl_subscription_t camera_pose_subscriber;
+geometry_msgs__msg__Pose camera_pose_msg;
+
+rcl_publisher_t pose_publisher;
 geometry_msgs__msg__Pose pose_msg;
 
 rcl_subscription_t marker_subscriber;
@@ -148,7 +151,7 @@ void vector_callback(const void * msgin)
 }
 
 // Handles vector messages recieved from a ROS subscription
-void pose_callback(const void * msgin)
+void camera_pose_callback(const void * msgin)
 {
   //  Cast received message to vector
   const geometry_msgs__msg__Pose * msg = (const geometry_msgs__msg__Pose *)msgin;
@@ -164,6 +167,11 @@ void pose_callback(const void * msgin)
   Wire.beginTransmission(ROBOT_I2C_ADDR);
   Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
   Wire.endTransmission();
+
+  pose_msg.position.x = msg->position.x;
+  pose_msg.position.y = msg->position.y;
+  pose_msg.orientation.z = msg->orientation.z;
+  RCCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 }
 
 // Handles marker messages recieved from a ROS subscription
@@ -239,6 +247,15 @@ void configure_robot() {
     heartbeat_topic_name));
   handle_count++;
 
+  char pose_topic_name[32];
+  sprintf(pose_topic_name, "/robot%d/pose", id);
+  RCCHECK(rclc_publisher_init_default(
+    &pose_publisher,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
+    pose_topic_name));
+  handle_count++;
+
   //  Subscribe to the vector ROS topic, using Vector3 messages
   char vector_topic_name[32];
   sprintf(vector_topic_name, "/robot%d/vectors", id);
@@ -250,13 +267,13 @@ void configure_robot() {
   handle_count++;
 
   //  Subscribe to the vector ROS topic, using Vector3 messages
-  char pose_topic_name[32];
-  sprintf(pose_topic_name, "/robot%d/pose", id);
+  char camera_pose_topic_name[32];
+  sprintf(camera_pose_topic_name, "/robot%d/camera_pose", id);
   RCCHECK(rclc_subscription_init_default(
-    &pose_subscriber,
+    &camera_pose_subscriber,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
-    pose_topic_name));
+    camera_pose_topic_name));
   handle_count++;
 
   //  Subscribe to the marker ROS topic, using Int64 messages
@@ -287,8 +304,8 @@ void configure_robot() {
 
   //  Adds the pose subscription to the executor
   RCCHECK(rclc_executor_add_subscription(
-    &executor, &pose_subscriber, &pose_msg,
-    &pose_callback, ON_NEW_DATA));
+    &executor, &camera_pose_subscriber, &camera_pose_msg,
+    &camera_pose_callback, ON_NEW_DATA));
   
   //  Adds the marker subscription to the executor
   RCCHECK(rclc_executor_add_subscription(
