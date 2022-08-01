@@ -168,9 +168,13 @@ void camera_pose_callback(const void * msgin)
   Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
   Wire.endTransmission();
 
-  pose_msg.position.x = msg->position.x;
-  pose_msg.position.y = msg->position.y;
-  pose_msg.orientation.z = msg->orientation.z;
+  //  Sends i2c_status to the 3Pi
+  Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
+  Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
+
+  pose_msg.position.x = i2c_status_rx.x;
+  pose_msg.position.y = i2c_status_rx.y;
+  pose_msg.orientation.z = i2c_status_rx.theta;
   RCCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 }
 

@@ -88,7 +88,6 @@ void i2c_sendStatus()
   i2c_status_tx.x = kinematics.x_global;
   i2c_status_tx.y = kinematics.y_global;
   i2c_status_tx.theta = kinematics.currentRotation;
-  i2c_status_tx.status--; // debugging
 
   // Send up
   Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
