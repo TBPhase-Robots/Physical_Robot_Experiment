@@ -7,12 +7,13 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
-
+import random
 class CommandListener(Node):
 
     def __init__(self, topic_name, controller_callback):
-        
-        super().__init__('listener')
+        rId = random.randint(0, 9999)
+        pubName = f'commandListener{rId}'
+        super().__init__(pubName)
         print("created subscription: " , topic_name)
         self.sub = self.create_subscription(String, topic_name, controller_callback, 10)
       
