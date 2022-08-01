@@ -20,7 +20,7 @@ Kinematics_c kinematics;
 #define R_DIR_PIN 15
 
 float global_x = 0;
-float global_y = 10;
+float global_y = 0;
 float goal = 0;
 
 // Data to send(tx) and receive(rx)
@@ -105,7 +105,7 @@ void i2c_recvStatus(int len)
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
-  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2;
+  kinematics.currentRotation = i2c_status_rx.theta;
 
   float angle = atan2(global_y, global_x);
 
@@ -160,38 +160,31 @@ void go_forward(float vel)
   setRightMotor(vel);
 }
 
+float between_pi(float angle) {
+  while (abs(angle) > PI)
+  {
+    if (angle > 0)
+    {
+      angle -= 2 * PI;
+    }
+    else
+    {
+      angle += 2 * PI;
+    }
+  }
+
+  return angle;
+}
+
 void loop()
 {
 
-  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
+  float theta = kinematics.currentRotation; 
   float error = goal - theta;
-  /*if (global_x == 0.0 && global_y == 0.0){
-    go_forward(0.0);
-  }
-  else{*/
-  while (abs(theta) > PI)
-  {
-    if (theta > 0)
-    {
-      theta -= 2 * PI;
-    }
-    else
-    {
-      theta += 2 * PI;
-    }
-  }
 
-  if (abs(error) > PI)
-  {
-    if (error > 0)
-    {
-      error -= 2 * PI;
-    }
-    else
-    {
-      error += 2 * PI;
-    }
-  }
+  theta = between_pi(theta);
+  error = between_pi(error);
+
   if (abs(error) > 0.2)
   {
     float limit = 0.75;
@@ -215,7 +208,7 @@ void loop()
     {
       float speed = sqrt(global_x * global_x + global_y * global_y);
       if (speed > MAX_SPEED) {
-        go_forward(50.0);
+        go_forward(MAX_SPEED * SPEED_SCALE);
       }
       else {
         speed *= SPEED_SCALE;
@@ -224,6 +217,8 @@ void loop()
         }
         go_forward(speed);
       }
+    } else {
+      go_forward(0);
     }
   }
 

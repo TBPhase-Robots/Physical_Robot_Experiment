@@ -21,7 +21,6 @@ def marker_to_int(marker_num):
             
             if pixel == 255:
                 output |= (1 << shift)
-                print(output)
             shift += 1
 
 
@@ -38,7 +37,6 @@ def main():
         plt.imshow(img, cmap = mpl.cm.gray, interpolation = "nearest")
         ax.axis("off")
 
-    print("marker_to_int")
     print(marker_to_int(3))
 
     
