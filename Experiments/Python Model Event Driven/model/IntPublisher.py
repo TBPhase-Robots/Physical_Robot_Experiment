@@ -6,13 +6,14 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from std_msgs.msg import Int32
-
+import random
 
 class IntPublisher(Node):
 
     def __init__(self, topic_name):
-        
-        super().__init__('intPublisher')
+        rId = random.randint(0, 999999)
+        pubName = f'intPublisher{rId}'
+        super().__init__(pubName)
         print("created publisher: " , topic_name)
         self.pub = self.create_publisher(Int32, topic_name, 10)
       
