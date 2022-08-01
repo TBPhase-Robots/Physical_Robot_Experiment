@@ -80,7 +80,6 @@ void setRightMotor(int velocity)
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
-// Not currently used
 void i2c_sendStatus()
 {
 

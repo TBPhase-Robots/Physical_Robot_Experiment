@@ -150,6 +150,8 @@ void vector_callback(const void * msgin)
   Wire.endTransmission();
 }
 
+bool first_pose = true;
+
 // Handles vector messages recieved from a ROS subscription
 void camera_pose_callback(const void * msgin)
 {
@@ -164,9 +166,12 @@ void camera_pose_callback(const void * msgin)
   i2c_status_tx.packet_type = POSE_PACKET;
 
   //  Sends i2c_status to the 3Pi
-  Wire.beginTransmission(ROBOT_I2C_ADDR);
-  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
-  Wire.endTransmission();
+  if (first_pose) {
+    Wire.beginTransmission(ROBOT_I2C_ADDR);
+    Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+    Wire.endTransmission();
+    first_pose = false;
+  }
 
   //  Sends i2c_status to the 3Pi
   Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
