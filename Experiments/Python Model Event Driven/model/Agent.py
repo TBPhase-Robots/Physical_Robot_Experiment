@@ -27,6 +27,7 @@ from model.Listener import Listener
 from model.VectorPublisher import VectorPublisher
 from model.FloatPublisher import FloatPublisher
 from model.ColourPublisher import ColourPublisher
+from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
 
@@ -34,7 +35,7 @@ from geometry_msgs.msg import Pose, Vector3
 class Agent(pygame.sprite.Sprite):
     
     
-    def __init__(self, position, id, cfg, rotation, poseAgentCallback, role, screen) -> None:
+    def __init__(self, position, id, cfg, rotation, poseAgentCallback, role, screen, simulationNode) -> None:
         
         pygame.sprite.Sprite.__init__(self)
         
@@ -54,12 +55,13 @@ class Agent(pygame.sprite.Sprite):
         self.screen = screen
         self.lastRotation = rotation
         self.hasNewRotation= False
+        self.simulationNode = simulationNode
 
         # width ratio = worldWidth / camera width
-        self.widthRatio = self.worldWidth / self.camWidth
+        self.widthRatio = self.worldWidth / self.cameraWidth
 
         # height ratio = worldheight / camera height
-        self.heightRatio = self.worldHeight / self.camHeight
+        self.heightRatio = self.worldHeight / self.cameraHeight
 
         # dog
         self.sub_flock = pygame.sprite.Group()
@@ -77,23 +79,41 @@ class Agent(pygame.sprite.Sprite):
         self.grazing_direction = np.array([1, 0])
 
         # ROS
-        self.listener = Listener(self.id, self.AgentCallback) 
+        self.topicPoseName = f'/robot{id}/pose'
+        self.listener = self.simulationNode.CreatePoseListener(self.topicPoseName, self.AgentCallback) 
 
         self.topicName = f'/robot{id}/vectors'
         print("self.topic_name: ", self.topicName)
-        self.publisher = VectorPublisher(self.topicName, self.id)
+        self.vectorPublisher = self.simulationNode.CreateVectorPublisher(self.topicName)
 
         self.colourTopicName = f'/robot{id}/colours'
-        self.colourPublisher = ColourPublisher(self.colourTopicName, self.id)
-
+        self.colourPublisher = self.simulationNode.CreateColourPublisher(self.colourTopicName)
+        
 
         # NOTE 
         # THIS IS NOT YET IMPLEMENTED ON THE ROBOT END
         self.floatTopicName = f'/robot{id}/speed'
-        self.maxSpeedPublisher = FloatPublisher(self.floatTopicName, self.id)
+        self.maxSpeedPublisher = self.simulationNode.CreateFloatPublisher(self.floatTopicName)
+        
         
 
     #end function
+    
+    def SetAgentConfig(self, newCfg):
+        self.cfg = newCfg
+
+        self.cameraWidth = newCfg['cam_width']
+        self.cameraHeight = newCfg['cam_height']
+        self.worldWidth = newCfg['world_width']
+        self.worldHeight = newCfg['world_height']
+
+        # width ratio = worldWidth / camera width
+        self.widthRatio = self.worldWidth / self.cameraWidth
+
+        # height ratio = worldheight / camera height
+        self.heightRatio = self.worldHeight / self.cameraHeight
+
+        print("successfully changed config of agent ", self.id)
 
     def AgentCallback(self, msg):
         # decode position and rotation data, set agent position and rotation
@@ -132,10 +152,10 @@ class Agent(pygame.sprite.Sprite):
        
         
 
-        print('-------')
-        print(x, y, "    ", str(self.id))
-        print(pose_x, pose_y, "    ", str(self.id))
-        print(newPose.orientation.z, "    ", self.id)
+      #  print('-------')
+      #  print(x, y, "    ", str(self.id))
+     #   print(pose_x, pose_y, "    ", str(self.id))
+     #   print(newPose.orientation.z, "    ", self.id)
 
 
         self.position[0] = x
@@ -145,7 +165,7 @@ class Agent(pygame.sprite.Sprite):
         forwardX = math.cos(self.rotation)
         forwardY = math.sin(self.rotation)
 
-        print(np.add(self.position, np.array([forwardX, forwardY])*80), "    ", self.id)
+      #  print(np.add(self.position, np.array([forwardX, forwardY])*80), "    ", self.id)
 
         # x = pose_x * widthRatio
         # y = pose_y * heightRatio
@@ -164,15 +184,7 @@ class Agent(pygame.sprite.Sprite):
 
         self.hasNewRotation = True
 
-    # call this function from central poller
-    def RosUpdate(self):
-        
-       # pygame.draw.line(screen, colours.BLUE, [200.0, 300.0], [300.0, 200.0], 5)
-       # pygame.draw.circle(screen, colours.DGREEN, [ 300, 300], 20)
 
-        rclpy.spin_once(self.listener, timeout_sec=0)
-       # print("ROS UPDATE")
-       # print(self.screen)
 
 
     
@@ -213,15 +225,15 @@ class Agent(pygame.sprite.Sprite):
        # pygame.draw.line(self.screen, colours.RED, self.position, np.add(self.position, np.array([forwardX, -forwardY])*80) ,5)
 
         if(self.role == "dog"):
-            pygame.draw.circle(screen, colours.BLUE, self.position, 5)
+            pygame.draw.circle(screen, colours.BLUE, self.position, 30)
         elif(self.role == "sheep"):
-            pygame.draw.circle(screen, colours.WHITE, self.position, 5)
+            pygame.draw.circle(screen, colours.WHITE, self.position, 30)
         elif(self.role == "standby"):
-            pygame.draw.circle(screen, colours.BLUE, self.position, 5)
+            pygame.draw.circle(screen, colours.GREEN, self.position, 30)
         elif(self.role == "pig"):
-            pygame.draw.circle(screen, colours.BLACK, self.position, 5)
+            pygame.draw.circle(screen, colours.PINK, self.position, 30)
         else:
-            pygame.draw.circle(screen, colours.GREEN, self.position, 5)
+            pygame.draw.circle(screen, colours.BLACK, self.position, 30)
 
        
 
@@ -230,23 +242,23 @@ class Agent(pygame.sprite.Sprite):
     # the force is scaled to the screen space - camera space ratio
     def PublishForceToTopic(self, force, screen):
         vForce = Vector3()
-        vForce.y = force[0] 
-        vForce.x = force[1] 
-        if(self.hasNewRotation):
-            vForce.z = self.rotation
+        # switched at some point
+        vForce.x = force[0] 
+        vForce.y = force[1] 
+        vForce.z = self.rotation
         
         # since we have now updated the rotation of the robot, set to false
         self.hasNewRotation = False
-        print("publishing Vforce ", vForce, " to ", self.topicName)
+      #  print("publishing Vforce ", vForce, " to ", self.topicName)
 
-        self.publisher.pub.publish(vForce)
-        pygame.draw.line(screen, colours.BLUE, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 5)
+        self.vectorPublisher.publish(vForce)
+        pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
+        print("sending rotation ", vForce.z, " to robot ", self.id)
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
     # a flag remains signalling the robot has been halted until a new command is sent
     def HaltAgent(self, screen):
-        self.DrawSelf(screen)
         if(not self.halted):
             print("agent ", self.id, " has been halted")
             self.PublishForceToTopic(np.array([0.0,0.0]), screen)
@@ -261,7 +273,9 @@ class Agent(pygame.sprite.Sprite):
         # setting this flag to false ensures that we are not halted
         # halted agents are not sent commands in runSimulation.py
         self.halted = False
-        moveRepelDistance = 20
+        moveRepelDistance = cfg['move_to_point_repel_distance']
+
+
 
         # point is np array [0] [1] as x,y
         point = np.array([point_x, point_y])
@@ -271,22 +285,31 @@ class Agent(pygame.sprite.Sprite):
         force = self.steering_point -self.position 
         force = force / np.linalg.norm(force)
 
+        brakingDistance = cfg['robot_move_to_point_braking_distance']
+
+        curDistance = np.linalg.norm(self.steering_point -self.position)
+        if(curDistance > brakingDistance):
+            forceMultiplier = curDistance/brakingDistance
+            force*= forceMultiplier
+
         # calculate repulsion force from all other agents
-        F_D_D = np.zeros(2)
+        F_A = np.zeros(2)
         for agent in agents:
             if (agent.id != self.id):
                 if (np.linalg.norm((self.position) - (agent.position)) < moveRepelDistance):
-                    F_D_D = np.add(F_D_D, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
+                    F_A = cfg['agent_repulsion_from_agents'] * np.add(F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
 
-        repulsionForce = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
+        repulsionForce = F_A + (0.75 * np.array([F_A[1], -F_A[0]]))
         moveForce = force + repulsionForce
-        self.DrawSelf(screen)
+        #self.DrawSelf(screen)
         # if the simulation is running using real world robots, don't move the agent
         if(not cfg['event_driven_lock_movements']):
             self.position = np.add(self.position, moveForce*5)
         # publish force to robot topic
         self.PublishForceToTopic(moveForce, screen) 
-        pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
+
+        if(cfg['realistic_agent_movement_markers']):
+            pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
 
 
 
@@ -568,6 +591,7 @@ class Agent(pygame.sprite.Sprite):
         forwardY = math.cos(self.rotation)
 
 
+
         # if there is a dog within our vision range, do not exhibit grazing behaviour, RUN AWAY!
         if (self.closest_dog != None):
             if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
@@ -576,6 +600,8 @@ class Agent(pygame.sprite.Sprite):
                 if (random.random() < 0.05):
                     self.grazing_direction = np.array([random.uniform(-3, 3), random.uniform(-3, 3)])
                 self.grazing = True
+                if(cfg['event_driven']):
+                    self.HaltAgent(screen=screen)
         # if we are safe from dog agents, then graze
         else:
             self.grazing = True
@@ -590,6 +616,11 @@ class Agent(pygame.sprite.Sprite):
                 F_S = self.calc_F_S_Sheep(flock, cfg)
             else:
                 F_S = 0
+
+            # TODO - grazing behavuour over network
+            if(cfg['event_driven']):
+                    self.HaltAgent(screen=screen)
+
 
             # TODO
             # update repulsion to other sheep to be based on forces
@@ -622,6 +653,8 @@ class Agent(pygame.sprite.Sprite):
         
         # if the sheep is not grazing, exhibit the following behaviour:
         else:
+            # we are no longer halted, there is adog in range
+            self.halted = False
             # calculate repulsion force of all dogs on the sheep
             F_D = self.calc_F_D_Sheep(pack, cfg)
             if (len(flock) > 1):
@@ -670,6 +703,9 @@ class Agent(pygame.sprite.Sprite):
             F = np.add(boundaryForce*40, F)
 
             # publish F to topic
+            print("sheepForce: ",  F)
+            print("sheepForce magnitude", np.linalg.norm(F))
+
             self.PublishForceToTopic(F, screen)
 
             angle = self.CalcAngleBetweenVectors(np.array([forwardX, -forwardY]), np.array(F))
@@ -725,8 +761,6 @@ class Agent(pygame.sprite.Sprite):
                 
             else:
                 pygame.draw.circle(screen, colours.HERD, self.position, 5)
-        else:
-            pygame.draw.circle(screen, colours.WHITE, self.position, 5)
         if (cfg['debug_sub_flocks']):
             if (self.closest_dog != None):
                 if (self.closest_dog.id < 5):

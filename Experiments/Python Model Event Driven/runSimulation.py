@@ -18,12 +18,21 @@ from ProtoInputHandler import ProtoInputHandler
 from model.Listener import Listener
 from model.CommandListener import CommandListener
 from model.AgentListener import AgentListener
+
+from model.SimulationNode import SimulationNode
+
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Float64
 from std_msgs.msg import ColorRGBA
 from std_msgs.msg import Int32
+
+from geometry_msgs.msg import Pose, Vector3
+
+from std_msgs.msg import Float64, Int32, String
+
+from std_msgs.msg import ColorRGBA
 
 
 
@@ -44,16 +53,39 @@ agents = pygame.sprite.Group()
 
 
 config_name='defaultConfig'
+rclpy.init(args=None)
+simulationNode = SimulationNode()
 
-
-
-
+cfg =0
 with open(f"experiment_config_files/{config_name}.json") as json_file:
     cfg = json.load(json_file)
 
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
 
+
+# callback invoked by state controller to change the current config file
+def SetConfigCallback(data):
+    # set the config that we're going to use mid-experiment
+    global cfg
+    cfgName = data.data
+
+    try:
+        with open(f"experiment_config_files/{cfgName}.json") as json_file:
+            cfg = json.load(json_file)
+            print("changed cfg to ", cfgName)
+            
+            state == "standby_setup_loop"
+            print("simulation state changed to ", state)
+
+            for agent in agents:
+                agent.SetAgentConfig(cfg)
+
+            SortAgentsByRole()
+    except:
+        print("incorrect file name ", cfgName)
+
+   
 
 # controller callback is called by an agent whenever it has successfully updated its state via ROS pose
 def ControllerCallback(data):
@@ -92,7 +124,15 @@ def CommandListenerCallback(data):
     global state
     print("CommandListenerData:")
     print(data.data)
-    state = data.data
+
+    # if set all to standby
+    if(data.data == "set_to_standby"):
+        for agent in agents:
+            agent.role = "standby"
+        
+        SortAgentsByRole()
+    else:
+        state = data.data
 
 def calc_voronoi_partitioning(flock, pack):
     for dog in pack:
@@ -108,10 +148,13 @@ def calc_voronoi_partitioning(flock, pack):
         sheep.closest_dog.add_sheep_to_sub_flock(sheep)
 #end function
 
-def add_agent(agents, position, cfg, id, screen):
-    agent = Agent(position = position, id = id, cfg = cfg, rotation=0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen)
+def add_agent(agents, position, cfg, id, screen, simulationNode):
+    agent = Agent(position = position, id = id, cfg = cfg, rotation=0.0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
     agents.add(agent)
-    agent.role 
+
+    
+    agent.PublishForceToTopic(np.array([0.0,0.0]), screen)
+    # agent.role = 'agent'
     return id + 1
 
 def add_agent_callback(msg):
@@ -124,7 +167,7 @@ def add_agent_callback(msg):
 
     randx = random.uniform(50, 300)
     randy = random.uniform(50, 300)
-    add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, camWidth=cfg['cam_width'], camHeight=cfg['cam_height'], worldWidth=cfg['world_width'], worldHeight=cfg['world_height'], screen=screen)
+    add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, screen=screen, simulationNode=simulationNode)
 
 
 
@@ -137,16 +180,15 @@ def DrawWorld(cfg):
     pygame.draw.rect(screen, colours.BLUE, pygame.Rect(cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
 
     for pos in cfg['initial_sheep_positions']:
-        pygame.draw.circle(screen, colours.WHITE, pos, 8)
+        pygame.draw.circle(screen, colours.WHITE, pos, 2)
 
     for pos in cfg['initial_dog_positions']:
-        pygame.draw.circle(screen, colours.BLUE, pos, 8)
+        pygame.draw.circle(screen, colours.BLUE, pos, 2)
 
     for pos in cfg['standby_positions']:
-        pygame.draw.circle(screen, colours.RED, pos, 8)
+        pygame.draw.circle(screen, colours.RED, pos, 2)
 
 
-    pygame.draw.line(screen, colours.GREEN, [207, 264], [287, 268], 5)
 
     #pygame.display.update()
     #pygame.display.flip()
@@ -154,7 +196,7 @@ def DrawWorld(cfg):
 
 
 # calls standard behaviour on all sheep and dog agents for simulation
-def ExperimentUpdateTimestep(agents, pack, flock, cfg):
+def ExperimentUpdateTimestep(pack, flock, cfg):
     if (len(pack) > 0):
         calc_voronoi_partitioning(flock, pack)
         for dog in pack:
@@ -168,18 +210,17 @@ def ExperimentUpdateTimestep(agents, pack, flock, cfg):
         for sheep in flock:
 
             sheep.SimulationUpdate_Sheep(screen, flock, pack, cfg)                  
-    for pig in pigs:
-        pig.DrawSelf(screen)
-    for agent in standby:
-        agent.DrawSelf(screen)
 
-def MoveToPointDecision(agent, movePos, cfg):
+def MoveToPointDecision(agent: Agent, movePos, cfg):
+    print(f'deciding to moving agent {agent.id}')
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 25):
+    if(np.linalg.norm(movePos - agentPos) > 130):
+        print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
+        print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
 def StandbySetupUpdateTimestep(agents, cfg):
@@ -221,50 +262,50 @@ def SortAgentsByRole():
         if(agent.role == "dog"):
             pack.add(agent)
             msg.data = robot_dog_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
             #print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - DOG")
 
             # TODO - remove setting agent colour at start
-            colourMsg.r = 0.3
-            colourMsg.g = 0.3
+            colourMsg.r = 0.8
+            colourMsg.g = 0.8
             colourMsg.b = 1.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
 
         if(agent.role == "sheep"):
             flock.add(agent)
             msg.data = robot_sheep_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
             #print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - SHEEP")
             # TODO - remove setting agent colour at start
             colourMsg.r = 1.0
             colourMsg.g = 1.0
             colourMsg.b = 1.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - SHEEP")
 
         if(agent.role == "pig"):
             pigs.add(agent)
             msg.data = robot_pig_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
            # print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - PIG")
 
             # TODO - remove setting agent colour at start
             colourMsg.r = 1.0
             colourMsg.g = 0.0
             colourMsg.b = 0.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - PIG")
         if(agent.role == "standby"):
             standby.add(agent)
             msg.data = robot_standby_speed
-            agent.maxSpeedPublisher.pub.publish(msg)
+            agent.maxSpeedPublisher.publish(msg)
           #  print("setting agent ", str(agent.id), " max speed to ", str(robot_dog_speed), " - STANDBY")
 
             # TODO - remove setting agent colour at start
             colourMsg.r = 0.0
             colourMsg.g = 1.0
             colourMsg.b = 0.0
-            agent.colourPublisher.pub.publish(colourMsg)
+            agent.colourPublisher.publish(colourMsg)
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - STANDBY")
 
         
@@ -273,7 +314,7 @@ def SortAgentsByRole():
 
 def main(show_empowerment=False):
 
-    rclpy.init(args=None)
+    
 
 
 
@@ -292,6 +333,9 @@ def main(show_empowerment=False):
     robot_sheep_speed = cfg['robot_sheep_max_speed']
     robot_standby_speed = cfg['robot_standby_max_speed']
 
+
+
+
     end_game = False
 
     pygame.init()
@@ -299,30 +343,30 @@ def main(show_empowerment=False):
    
     screen = pygame.display.set_mode([cfg['world_width'] + 80,cfg['world_height']])
 
+    # when we start up the simulation, everything should be normalised to a 900 board
+
     agent_id = 0
 
 
     commandListenerTopicName = "/controller/command"
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
+    jsonListenerTopicName = "/controller/config"
+
     
+
     # define the state command listener:
-    commandListener = CommandListener(commandListenerTopicName, CommandListenerCallback) 
+    commandListener = simulationNode.CreateStringListener(commandListenerTopicName, CommandListenerCallback) 
 
     # define the dispatch listener
-    dispatchListener = CommandListener(dispatchListenerTopicName, DispatchCallback)
+    dispatchListener = simulationNode.CreateStringListener(dispatchListenerTopicName, DispatchCallback)
 
     # define the add agent listener
-    agentListener = AgentListener(agentListenerTopicName, add_agent_callback)
+    agentListener = simulationNode.CreateAgentListener(agentListenerTopicName, add_agent_callback)
 
+    jsonListener= simulationNode.CreateStringListener(jsonListenerTopicName, SetConfigCallback)
 
-
-    ## add n agents
-
-    
-
-
-    # put all robots into standby.
+    # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
 
     SortAgentsByRole()
@@ -344,20 +388,16 @@ def main(show_empowerment=False):
 
         
         
-        # time.sleep(0.01)
 
+        rclpy.spin_once(simulationNode, timeout_sec=0.1)
 
-        # poll for poses for each agent
-        for agent in agents:
-            agent.RosUpdate()
-        
 
         # look out for commands send to this script
-        rclpy.spin_once(commandListener, timeout_sec=0.01)
+        #rclpy.spin_once(commandListener, timeout_sec=0.01)
         # check if user wants to dispatch/recall dogs
-        rclpy.spin_once(dispatchListener, timeout_sec=0.01)
+        #rclpy.spin_once(dispatchListener, timeout_sec=0.01)
         # check if we have add/remove agents
-        rclpy.spin_once(agentListener, timeout_sec=0.01)
+        #rclpy.spin_once(agentListener, timeout_sec=0.01)
 
         # draw world 
 
@@ -372,14 +412,6 @@ def main(show_empowerment=False):
         if(sendUpdates or not cfg['event_driven']):
             if(state == "standby_setup_loop"):
                 StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
 
             if(state == "setup_start"):
 
@@ -446,15 +478,7 @@ def main(show_empowerment=False):
                     MoveToPointDecision(agent = sheep, movePos = np.array(pos), cfg = cfg)
                 # sheep.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
                     i += 1
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
+            
             
             if(state == "dog_setup_loop"):
                 # get the list of positions for starting dogs to move to
@@ -464,14 +488,6 @@ def main(show_empowerment=False):
                     pos = dogPositions[i]
                     MoveToPointDecision(agent = dog, movePos = np.array(pos), cfg = cfg)
                     i += 1
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for pig in pigs:
-                    pig.DrawSelf(screen = screen)
             
             if(state == "pig_setup_loop"):
                 # get the list of positions for the unused pigs to move to
@@ -482,23 +498,12 @@ def main(show_empowerment=False):
                     MoveToPointDecision(agent = pig, movePos = np.array(pos), cfg = cfg)
                     i += 1
 
-                for sheep in flock:
-                    sheep.DrawSelf(screen = screen)
-
-                for agent in standby:
-                    agent.DrawSelf(screen = screen)
-                
-                for dog in pack:
-                    dog.DrawSelf(screen = screen)
-
             elif(state == "experiment"):
-                ExperimentUpdateTimestep(agents = agents, pack = pack, flock=flock,  cfg=cfg)
+                ExperimentUpdateTimestep(pack = pack, flock=flock,  cfg=cfg)
                 StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
                 for pig in pigs:
-                    pig.DrawSelf(screen = screen)
                     pig.HaltAgent(screen)
-            else:
-                for agent in agents:
+            for agent in agents:
                     agent.DrawSelf(screen)
         # if we are not cleared to send updates due to no incoming data (if in event driven mode), then draw all agents
         else:

@@ -1,4 +1,7 @@
 
+import sys
+sys.path.append('..')
+
 import time
 from typing import List
 from std_msgs.msg import Bool
@@ -10,6 +13,8 @@ from rclpy.node import Node
 from rclpy.publisher import Publisher
 from rclpy.subscription import Subscription
 import marker_maker
+
+from Logging.ros_logger import RosLogger
 
 class Robot():
     id: int
@@ -38,6 +43,8 @@ class Server(Node):
     def __init__(self):
         super().__init__("server")
 
+        self.logger = RosLogger(self, 'server')
+
         self.ids_publisher = self.create_publisher(Int32, '/setup/ids', 10)
         self.register_subscription = self.create_subscription(Int32, '/setup/register', self.register_callback, 10)
         self.added_robot_publisher = self.create_publisher(Int32, '/global/robots/added', 10)
@@ -53,7 +60,7 @@ class Server(Node):
 
         marker_msg = Int64()
         marker_msg.data = marker
-        print('publishing marker')
+        self.logger.log('publishing marker')
         robot.marker_publisher.publish(marker_msg)
 
     def register_callback(self, msg: Int32):
@@ -63,7 +70,7 @@ class Server(Node):
             robot.id = self.next_id
             self.active_robots.append(robot)
 
-            print(f'Sending id: {self.next_id}')
+            self.logger.log(f'Sending id: {self.next_id}')
 
             id_msg = Int32()
             id_msg.data = self.next_id
@@ -73,7 +80,7 @@ class Server(Node):
         else:
             id_count = self.active_robot_ids.count(msg.data)
             if id_count > 1:
-                print(f'Duplicate id: {msg.data}')
+                self.logger.warn(f'Duplicate id: {msg.data}')
             else:
                 robot_index = self.active_robot_ids.index(msg.data)
                 robot = self.active_robots[robot_index]
@@ -81,7 +88,7 @@ class Server(Node):
 
                 id_msg = Int32()
                 id_msg.data = robot.id
-                print(f'Publishing new robot')
+                self.logger.log(f'Publishing new robot')
                 self.added_robot_publisher.publish(id_msg)
 
     def check_alive(self, time_delta):
