@@ -255,14 +255,16 @@ class Agent(pygame.sprite.Sprite):
 
         self.vectorPublisher.publish(vForce)
         pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
-        print("sending rotation ", vForce.z, " to robot ", self.id)
+      #  print("sending rotation ", vForce.z, " to robot ", self.id)
+
+      
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
     # a flag remains signalling the robot has been halted until a new command is sent
     def HaltAgent(self, screen):
         if(not self.halted):
-            print("agent ", self.id, " has been halted")
+        #    print("agent ", self.id, " has been halted")
             self.PublishForceToTopic(np.array([0.0,0.0]), screen)
             self.halted = True
 
@@ -668,6 +670,8 @@ class Agent(pygame.sprite.Sprite):
 
         # This section defines all of the grazing behaviour of an agent when it is a sheep
         if (self.grazing):
+            self.halted = False
+
             if (len(flock) > 1):
                 F_S = self.calc_F_S_Sheep(flock, cfg)
             else:

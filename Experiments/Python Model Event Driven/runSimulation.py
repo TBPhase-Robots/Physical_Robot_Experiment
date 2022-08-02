@@ -34,6 +34,8 @@ from std_msgs.msg import Float64, Int32, String
 
 from std_msgs.msg import ColorRGBA
 
+from model.PathfindingManager import PathfindingManager
+
 
 
 state = "standby_setup_loop"
@@ -52,6 +54,7 @@ standby = pygame.sprite.Group()
 agents = pygame.sprite.Group()
 
 
+
 config_name='defaultConfig'
 rclpy.init(args=None)
 simulationNode = SimulationNode()
@@ -62,6 +65,8 @@ with open(f"experiment_config_files/{config_name}.json") as json_file:
 
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
+
+
 
 
 # callback invoked by state controller to change the current config file
@@ -165,8 +170,8 @@ def add_agent_callback(msg):
     print(msg)
     new_id = msg.data
 
-    randx = random.uniform(50, 300)
-    randy = random.uniform(50, 300)
+    randx = random.uniform(50, 900)
+    randy = random.uniform(50, 550)
     add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, screen=screen, simulationNode=simulationNode)
 
 
@@ -212,15 +217,15 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
             sheep.SimulationUpdate_Sheep(screen, flock, pack, agents, cfg)                  
 
 def MoveToPointDecision(agent: Agent, movePos, cfg):
-    print(f'deciding to moving agent {agent.id}')
+    #print(f'deciding to moving agent {agent.id}')
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 50):
-        print(f'moving agent {agent.id}')
+    if(np.linalg.norm(movePos - agentPos) > 75):
+       # print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
-        print(f'halting agent {agent.id}')
+        #print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
 def StandbySetupUpdateTimestep(agents, cfg):
@@ -237,6 +242,8 @@ def StandbySetupUpdateTimestep(agents, cfg):
 def SetAllAgentRolesToStandby():
     for agent in agents:
         agent.role = "standby"
+
+
 
 def SortAgentsByRole():
     # get maximum robot speeds and transmit
@@ -343,6 +350,8 @@ def main(show_empowerment=False):
    
     screen = pygame.display.set_mode([cfg['world_width'] + 80,cfg['world_height']])
 
+    pathfindingManager = PathfindingManager(screen, cfg)
+
     # when we start up the simulation, everything should be normalised to a 900 board
 
     agent_id = 0
@@ -415,10 +424,13 @@ def main(show_empowerment=False):
 
             if(state == "setup_start"):
 
+
+               
+
                 # we assume all agents are in standby position. Set all agents to standby:
                 SetAllAgentRolesToStandby()
                 SortAgentsByRole()
-                time.sleep(0.5)
+                time.sleep(0.2)
                 # look at experiment config file
                 # choose first n standby agents as sheep
                 sheepPositions = cfg['initial_sheep_positions']
@@ -433,7 +445,7 @@ def main(show_empowerment=False):
                 
                 # re order the groups of agents
                 SortAgentsByRole()
-                time.sleep(0.5)
+                time.sleep(0.2)
 
                 dogPositions = cfg['initial_dog_positions']
                 n = len(dogPositions)
@@ -446,7 +458,7 @@ def main(show_empowerment=False):
 
                 # re order the groups of agents
                 SortAgentsByRole()
-                time.sleep(0.5)
+                time.sleep(0.2)
 
                 # calculate the amount of reserve dogs left
                 reserveDogs = (cfg['max_number_of_dogs'] - len(pack))
@@ -469,6 +481,14 @@ def main(show_empowerment=False):
 
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"
+
+
+                stationaryAgents = [pack, standby, pigs]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+
+                sheepPositions = cfg['initial_sheep_positions']
+                pos = sheepPositions[0]
+                pathfindingManager.FindPath(GetAnyAgentFromGroup(flock), pos)
 
                 
 
