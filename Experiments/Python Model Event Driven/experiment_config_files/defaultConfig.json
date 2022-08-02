@@ -7,6 +7,10 @@
     "play_area_height" : 690, 
     "time_limit" : 5000,
 
+    "path_finding_width" : 12,
+    "path_finding_height" : 7,
+
+
     "show_empowerment" : true,
 
     "cam_width" : 2.0,
@@ -24,7 +28,7 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500]],
+    "initial_sheep_positions" : [[400, 500], [300, 500]],
     "initial_dog_positions" : [[440, 200], [340, 200], [240, 200]],
     "standby_positions" : [[150, 150], [350, 150], [550, 150], [750, 150], [950, 150]],
     "pigsty_positions" : [[25, 50], [25, 75], [50, 50], [50, 75], [75, 50], [75, 75], [100, 50], [100, 75], [125, 50], [125, 75]], 
@@ -42,7 +46,7 @@
     "lambda_G" : -1,
 
     "no_of_sheep_in_social_group" : 3,
-    "sheep_vision_range" : 70,
+    "sheep_vision_range" : 90,
     "grazing_movement_chance" : 0.3,
 
     "dog_forces_with_flock" : 1,
@@ -50,7 +54,7 @@
     "dog_repulsion_from_sheep" : 0.1,
     "dog_attraction_to_steering_point" : 4,
     "dog_orbital_around_flock" : 8,
-    "move_to_point_repel_distance" : 90,
+    "move_to_point_repel_distance" : 50,
 
     "agent_radius" : 30,
     

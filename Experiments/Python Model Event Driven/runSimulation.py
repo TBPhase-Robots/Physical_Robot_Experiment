@@ -228,6 +228,29 @@ def MoveToPointDecision(agent: Agent, movePos, cfg):
         #print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
+def FollowPathDecision(agent: Agent, path, cfg):
+
+    pathFindingTileRadius= cfg['world_width'] / cfg['path_finding_width']
+
+
+
+    if(len(path) > 0):
+        agentPos = np.array([agent.position[0], agent.position[1]])
+        targetPos = path[0]
+
+        if(len(path) == 1):
+            pathFindingTileRadius = 5
+        
+        if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius):
+            agent.MoveToPoint(point_x = targetPos[0], point_y = targetPos[1], screen = screen, agents = agents, cfg = cfg)
+        else:
+            path = path[1:]
+            agent.SetPath(path)
+            
+    else:
+        agent.HaltAgent(screen=screen)
+    
+
 def StandbySetupUpdateTimestep(agents, cfg):
     # make all agents go to top
     standbyPositions = cfg['standby_positions']
@@ -419,8 +442,7 @@ def main(show_empowerment=False):
         
         # if we have recieved an update from one of the agents, then proceed with simulation
         if(sendUpdates or not cfg['event_driven']):
-            if(state == "standby_setup_loop"):
-                StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
+           
 
             if(state == "setup_start"):
 
@@ -479,48 +501,86 @@ def main(show_empowerment=False):
                 SortAgentsByRole()
                 time.sleep(0.5)
 
-                # advance the state machine loop to the next state
-                state = "sheep_setup_loop"
+                
 
 
                 stationaryAgents = [pack, standby, pigs]
                 pathfindingManager.GenerateWorldMatrix(stationaryAgents)
 
                 sheepPositions = cfg['initial_sheep_positions']
-                pos = sheepPositions[0]
-                pathfindingManager.FindPath(GetAnyAgentFromGroup(flock), pos)
+                i =0
+                for sheep in flock:
+                    pos = sheepPositions[i]
+                    #sheep = GetAnyAgentFromGroup(flock)
+                    sheep.SetPath(pathfindingManager.FindPath(sheep, pos))
+                    i += 1
+
+                # advance the state machine loop to the next state
+                state = "sheep_setup_loop"
 
                 
 
             if(state == "sheep_setup_loop"):
 
                 # get the list of positions for sheep to move to
-                sheepPositions = cfg['initial_sheep_positions']
-                i = 0
                 for sheep in flock:
-                    pos = sheepPositions[i]
-                    MoveToPointDecision(agent = sheep, movePos = np.array(pos), cfg = cfg)
-                # sheep.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
-                    i += 1
+                    FollowPathDecision(agent= sheep, path=sheep.path, cfg=cfg)
+
             
-            
-            if(state == "dog_setup_loop"):
-                # get the list of positions for starting dogs to move to
-                dogPositions = cfg['initial_dog_positions']
+            if(state == "dog_setup_start"):
+
                 i = 0
+                stationaryAgents = [flock, standby, pigs]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+                dogPositions = cfg['initial_dog_positions']
                 for dog in pack:
                     pos = dogPositions[i]
-                    MoveToPointDecision(agent = dog, movePos = np.array(pos), cfg = cfg)
+                    dog.SetPath(pathfindingManager.FindPath(dog, pos))
                     i += 1
-            
-            if(state == "pig_setup_loop"):
-                # get the list of positions for the unused pigs to move to
-                pigPositions = cfg['pigsty_positions']
+
+                state = "dog_setup_loop"
+
+            if(state == "dog_setup_loop"):
+                # get the list of positions for starting dogs to move to
+                for dog in pack:
+                    FollowPathDecision(agent= dog, path=dog.path, cfg=cfg)
+
+            if(state == "pig_setup_start"):
                 i = 0
+                stationaryAgents = [flock, standby, pack]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+                pigPositions = cfg['pigsty_positions']
                 for pig in pigs:
                     pos = pigPositions[i]
-                    MoveToPointDecision(agent = pig, movePos = np.array(pos), cfg = cfg)
+                    pig.SetPath(pathfindingManager.FindPath(pig, pos))
                     i += 1
+
+                state = "pig_setup_loop"
+            
+            if(state == "pig_setup_loop"):
+                # get the list of positions for starting pigs to move to
+                for pig in pigs:
+                    FollowPathDecision(agent= pig, path=pig.path, cfg=cfg)
+
+
+            if(state == "standby_setup_start"):
+                i = 0
+                standbyPositions = cfg['standby_positions']
+                stationaryAgents = [flock, pigs, pack]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+                for agent in standby:
+                    pos = standbyPositions[i]
+                    agent.SetPath(pathfindingManager.FindPath(agent, pos))
+                    i += 1
+
+                state = "standby_setup_loop"
+
+
+            if(state == "standby_setup_loop"):
+                for agent in standby:
+                    FollowPathDecision(agent = agent, path=agent.path, cfg=cfg)
+
+
 
             elif(state == "experiment"):
                 ExperimentUpdateTimestep(pack = pack, flock=flock,  cfg=cfg)

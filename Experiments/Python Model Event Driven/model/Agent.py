@@ -57,6 +57,9 @@ class Agent(pygame.sprite.Sprite):
         self.hasNewRotation= False
         self.simulationNode = simulationNode
 
+        # pathfinding
+        self.path = []
+
         # width ratio = worldWidth / camera width
         self.widthRatio = self.worldWidth / self.cameraWidth
 
@@ -98,6 +101,10 @@ class Agent(pygame.sprite.Sprite):
         
 
     #end function
+
+    def SetPath(self, path):
+        self.path = path
+        print("set path to ", self.path)
     
     def SetAgentConfig(self, newCfg):
         self.cfg = newCfg
@@ -270,7 +277,7 @@ class Agent(pygame.sprite.Sprite):
 
     # called by the function MoveToPointDecision() in runSimulation.py
     # linearly moves agent (with obstacle avoidance) to point
-    # MoveToPointDecision() stops calling this when in a target range
+    # MoveToPointDecision() and PathDecision() stops calling this when in a target range
     # Publishes resultant force to robot topic
     def MoveToPoint(self, point_x, point_y, screen, agents, cfg):
         # this is a valid move command
@@ -344,7 +351,7 @@ class Agent(pygame.sprite.Sprite):
 
         # if the simulation is running using real world robots, don't move the agent
         if(not cfg['event_driven_lock_movements']):
-            self.position = np.add(self.position, moveForce)
+            self.position = np.add(self.position, moveForce * 5)
         
         
         
@@ -355,15 +362,15 @@ class Agent(pygame.sprite.Sprite):
             self.position = np.add(self.position, moveForce)
 
         # do collision detection if not running with real robots
-        collision_check = True
-        if(not cfg['event_driven_lock_movements']):
-            while (collision_check):
-                collision_check = False
-                for agent in agents:
-                    if (agent.id != self.id):
-                        if (np.linalg.norm(self.position - agent.position) <= cfg['agent_radius'] * 2):
-                            self.position = np.add(self.position, (self.position - agent.position)/3)
-                            collision_check = True
+        #collision_check = True
+        #if(not cfg['event_driven_lock_movements']):
+        #    while (collision_check):
+        #        collision_check = False
+        #        for agent in agents:
+        #            if (agent.id != self.id):
+        #                if (np.linalg.norm(self.position - agent.position) <= cfg['agent_radius'] * 2):
+        #                    self.position = np.add(self.position, (self.position - agent.position)/3)
+        #                    collision_check = True
 
         if(cfg['realistic_agent_movement_markers']):
             pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)

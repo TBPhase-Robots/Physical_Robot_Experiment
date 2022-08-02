@@ -50,7 +50,7 @@
     "dog_repulsion_from_sheep" : 0.1,
     "dog_attraction_to_steering_point" : 4,
     "dog_orbital_around_flock" : 8,
-    "move_to_point_repel_distance" : 90,
+    "move_to_point_repel_distance" : 50,
 
     "agent_radius" : 30,
     

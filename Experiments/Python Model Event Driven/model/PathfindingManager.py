@@ -42,12 +42,12 @@ class PathfindingManager():
         print("pathfinding engage")
 
 
-        self.pathFindingWidth = 16
-        self.pathFindingHeight = 9
+        self.pathFindingWidth = cfg['path_finding_width']
+        self.pathFindingHeight = cfg['path_finding_height']
         self.worldWidth = cfg['world_width']
         self.worldHeight = cfg['world_height']
-        self.pathFindingWorld_x = self.pathFindingWidth
-        self.pathFindingWorld_y = self.pathFindingHeight
+        self.pathFindingWorld_x = int(self.pathFindingWidth)
+        self.pathFindingWorld_y = int(self.pathFindingHeight)
         self.pathFindingGridSquareWidth = self.worldWidth / self.pathFindingWidth
         self.pathFindingGridSquareHeight = self.worldHeight / self.pathFindingHeight
         self.screen = screen 
@@ -68,7 +68,7 @@ class PathfindingManager():
         print("generating world")
 
         # generate numpy matrix
-        worldMatrix = np.ones((9,16), dtype=float)
+        worldMatrix = np.ones((self.pathFindingWorld_y ,self.pathFindingWorld_x ), dtype=float)
 
 
         for x in range(self.pathFindingWorld_x):
@@ -87,15 +87,15 @@ class PathfindingManager():
                 if(agentsInTile > 0):
                     worldMatrix[y, x] -= 1
 
-                    # add 0.5 to adjacent tiles
-                    if(x < 15):
-                        worldMatrix[y, x+1] -= 0.5
-                    if(x > 0):
-                        worldMatrix[y, x-1] -= 0.5
-                    if(y < 8):
-                        worldMatrix[y+1, x] -= 0.5
-                    if(y > 0):
-                        worldMatrix[y-1, x] -= 0.5
+                    # add 1 to adjacent tiles
+                    #if(x < 15):
+                    #    worldMatrix[y, x+1] = 1
+                    #if(x > 0):
+                    #    worldMatrix[y, x-1] = 1
+                    #if(y < 8):
+                    #    worldMatrix[y+1, x] = 1
+                    #if(y > 0):
+                    #    worldMatrix[y-1, x] = 1
         print(worldMatrix)
 
         self.worldMatrix = worldMatrix
@@ -123,8 +123,7 @@ class PathfindingManager():
         
         lastTileValue = self.worldMatrix[pathFindingPosY, pathFindingPosX]
         # if agent shares tile with stationary:
-        if(self.worldMatrix[pathFindingPosY, pathFindingPosX] > 0):
-            self.worldMatrix[pathFindingPosY, pathFindingPosX] = 0
+        self.worldMatrix[pathFindingPosY, pathFindingPosX] = 1
 
         # calculate path
        
@@ -135,7 +134,7 @@ class PathfindingManager():
 
         endPos = grid.node(pathFindingTargetPosX, pathFindingTargetPosY)
 
-        finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
+        finder = AStarFinder(diagonal_movement=DiagonalMovement.never)
         
         print(startPos)
         print(endPos)
@@ -147,11 +146,27 @@ class PathfindingManager():
 
         print("path", path)
 
+        
+
         # set current pathfinding position back to what it once was
 
         self.worldMatrix[pathFindingPosY, pathFindingPosX] = lastTileValue
 
         # return midpoints of screen space of each tile in the path
+        screenCoordinatesPath = []
+
+        for pathfindingCoordinates in path:
+            x = pathfindingCoordinates[0] * self.pathFindingGridSquareWidth + self.pathFindingGridSquareWidth * 0.5
+            y = pathfindingCoordinates[1] * self.pathFindingGridSquareHeight+ self.pathFindingGridSquareHeight * 0.5
+            screenCoordinatesPath.append([x,y])
+
+
+        screenCoordinatesPath.append([targetPos[0], targetPos[1]])
+        print("screen path ", screenCoordinatesPath)
+
+        
+
+        return screenCoordinatesPath
 
 
 
