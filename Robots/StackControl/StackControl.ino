@@ -177,14 +177,6 @@ void camera_pose_callback(const void * msgin)
   first_pose = false;
   // }
 
-  //  Sends i2c_status to the 3Pi
-  Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
-  Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
-
-  pose_msg.position.x = i2c_status_rx.x;
-  pose_msg.position.y = i2c_status_rx.y;
-  pose_msg.orientation.z = i2c_status_rx.theta;
-  RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 }
 
 // Handles vector messages recieved from a ROS subscription
@@ -437,6 +429,17 @@ void loop() {
   else {
     RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(500)));
     RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
+
+    //  Gets current pose from 3Pi
+    Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
+    Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
+
+    //  Publishes current pose
+    pose_msg.position.x = i2c_status_rx.x;
+    pose_msg.position.y = i2c_status_rx.y;
+    pose_msg.orientation.z = i2c_status_rx.theta;
+    RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
+
   }
 
 }
