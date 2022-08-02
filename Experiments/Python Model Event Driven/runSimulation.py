@@ -81,7 +81,7 @@ def SetConfigCallback(data):
             for agent in agents:
                 agent.SetAgentConfig(cfg)
 
-            SortAgentsByRole()
+
     except:
         print("incorrect file name ", cfgName)
 
@@ -200,7 +200,7 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
     if (len(pack) > 0):
         calc_voronoi_partitioning(flock, pack)
         for dog in pack:
-            dog.SimulationUpdate_Dog(screen, flock, pack, cfg)
+            dog.SimulationUpdate_Dog(screen, flock, pack, agents, cfg)
         
     else:
         for sheep in flock:
@@ -209,14 +209,14 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
     if(len(flock) > 0):
         for sheep in flock:
 
-            sheep.SimulationUpdate_Sheep(screen, flock, pack, cfg)                  
+            sheep.SimulationUpdate_Sheep(screen, flock, pack, agents, cfg)                  
 
 def MoveToPointDecision(agent: Agent, movePos, cfg):
     print(f'deciding to moving agent {agent.id}')
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 130):
+    if(np.linalg.norm(movePos - agentPos) > 50):
         print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
@@ -418,6 +418,7 @@ def main(show_empowerment=False):
                 # we assume all agents are in standby position. Set all agents to standby:
                 SetAllAgentRolesToStandby()
                 SortAgentsByRole()
+                time.sleep(0.5)
                 # look at experiment config file
                 # choose first n standby agents as sheep
                 sheepPositions = cfg['initial_sheep_positions']
@@ -432,6 +433,7 @@ def main(show_empowerment=False):
                 
                 # re order the groups of agents
                 SortAgentsByRole()
+                time.sleep(0.5)
 
                 dogPositions = cfg['initial_dog_positions']
                 n = len(dogPositions)
@@ -444,6 +446,7 @@ def main(show_empowerment=False):
 
                 # re order the groups of agents
                 SortAgentsByRole()
+                time.sleep(0.5)
 
                 # calculate the amount of reserve dogs left
                 reserveDogs = (cfg['max_number_of_dogs'] - len(pack))
@@ -462,6 +465,7 @@ def main(show_empowerment=False):
 
                 # re order the groups of agents
                 SortAgentsByRole()
+                time.sleep(0.5)
 
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"

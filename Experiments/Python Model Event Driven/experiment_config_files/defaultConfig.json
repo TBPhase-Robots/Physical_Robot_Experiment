@@ -24,14 +24,14 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500]],
-    "initial_dog_positions" : [[440, 200]],
-    "standby_positions" : [[150, 100], [200, 100], [250, 100], [300, 100], [350, 100]],
+    "initial_sheep_positions" : [[400, 500], [500, 500]],
+    "initial_dog_positions" : [[440, 200], [340, 200], [240, 200]],
+    "standby_positions" : [[150, 100], [250, 100], [350, 100], [450, 100], [550, 100]],
     "pigsty_positions" : [[25, 50], [25, 75], [50, 50], [50, 75], [75, 50], [75, 75], [100, 50], [100, 75], [125, 50], [125, 75]], 
 
     "target_position" : [800, 610],
 
-    "agent_repulsion_from_agents" : 5,
+    "agent_repulsion_from_agents" : 0.5,
 
     "sheep_resulsion_from_dogs" : 500,
     "sheep_repulsion_from_sheep" : 100,
@@ -51,6 +51,8 @@
     "dog_attraction_to_steering_point" : 4,
     "dog_orbital_around_flock" : 8,
     "move_to_point_repel_distance" : 90,
+
+    "agent_radius" : 30,
     
     "ticks_per_choice" : 5,
     "collection_radius" : 60,
