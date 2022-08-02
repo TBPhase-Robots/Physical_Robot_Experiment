@@ -13,7 +13,7 @@ popd
 
 # python3 Experiments/Hello_World/hello_world_central_program.py &
 
-read
+sleep 5
 
 ros2 topic pub /global/origin -1 geometry_msgs/msg/Vector3 '{x: -0.87, y: 0.85, z: 1.0}'
 

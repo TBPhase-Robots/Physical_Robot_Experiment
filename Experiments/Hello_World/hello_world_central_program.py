@@ -84,7 +84,7 @@ class forward_or_back(Node):
         new_robot = Robot()
         new_robot.id = msg.data
 
-        pose_topic = f"/robot{new_robot.id}/pose"
+        pose_topic = f"/robot{new_robot.id}/poses"
         new_robot.subscription = self.create_subscription(Pose, pose_topic, new_robot.position_callback, 10)
 
         vectors_topic = f"/robot{new_robot.id}/vectors"
@@ -94,7 +94,7 @@ class forward_or_back(Node):
         
 
     # def new_subscriber(self,ID):
-        # tag = "/robot" + str(ID) + "/pose"
+        # tag = "/robot" + str(ID) + "/poses"
         # self.robot_subs[ID] = rospy.Subscriber(tag,Pose,callback=self.position_callback,callback_args=ID)
 
     # def new_publisher(self,ID):

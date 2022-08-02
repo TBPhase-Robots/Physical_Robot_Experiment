@@ -19,14 +19,17 @@
 #include <std_msgs/msg/int64.h>
 #include <std_msgs/msg/color_rgba.h>
 #include <geometry_msgs/msg/vector3.h>
+#include <geometry_msgs/msg/pose.h>
 #include <lifecycle_msgs/msg/state.h>
 #include <lifecycle_msgs/srv/get_state.h>
 
 #include <Wire.h>           // i2c to connect to IR communication board.
 
+#include <arduino-timer.h>
+
 //  ROS error handlers. Calls error_loop if check fails.
 #define RCCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Aborting.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);error_loop();}}
-#define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);}}
+#define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){/*char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);*/}}
 
 #define COLOUR(r, g, b) {((r << 24) & 0xFF000000) | ((g << 16) & 0x00FF0000) | ((b << 8) & 0x0000FF00)}
 
@@ -38,6 +41,10 @@
 
 #define MAX_HANDLES 10
 
+#define POSE_PACKET 0
+#define FORCE_PACKET 1
+#define UNCERTAINTY_PACKET 2
+
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
 // Needs to match the master device
@@ -47,6 +54,7 @@ typedef struct i2c_status {
   float y;                  // 4 bytes
   float theta;              // 4 bytes
   uint8_t status;           // 1 byte
+  uint8_t packet_type;           // 1 byte
 } i2c_status_t;
 #pragma pack()
 
@@ -60,6 +68,15 @@ std_msgs__msg__Bool heartbeat_msg;
 
 rcl_subscription_t vector_subscriber;
 geometry_msgs__msg__Vector3 vector_msg;
+
+rcl_subscription_t camera_pose_subscriber;
+geometry_msgs__msg__Pose camera_pose_msg;
+
+rcl_subscription_t uncertainty_subscriber;
+geometry_msgs__msg__Vector3 uncertainty_msg;
+
+rcl_publisher_t pose_publisher;
+geometry_msgs__msg__Pose pose_msg;
 
 rcl_subscription_t marker_subscriber;
 std_msgs__msg__Int64 marker_msg;
@@ -88,6 +105,8 @@ int id = -1;
 bool configured = false;
 
 int64_t marker = 0;
+
+Timer<10> timer;
 
 //  Stops and prints an error.
 void error_loop(){
@@ -126,19 +145,56 @@ void vector_callback(const void * msgin)
   //  Cast received message to vector
   const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
 
-  //  Converts message to a string
-  char s[32];
-  sprintf(s, "Received: %f\0", msg->x);
+  //  Converts message to i2c_status
+  i2c_status_tx.x = msg->x;
+  i2c_status_tx.y = msg->y;
+  i2c_status_tx.theta = msg->z;
+  i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = FORCE_PACKET;
 
-  // //  Prints message to the screen
-  // M5.lcd.clear();
-  // M5.lcd.drawString(s, 0, 0);
+  //  Sends i2c_status to the 3Pi
+  Wire.beginTransmission(ROBOT_I2C_ADDR);
+  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.endTransmission();
+}
+
+bool first_pose = true;
+
+// Handles vector messages recieved from a ROS subscription
+void camera_pose_callback(const void * msgin)
+{
+  //  Cast received message to vector
+  const geometry_msgs__msg__Pose * msg = (const geometry_msgs__msg__Pose *)msgin;
+
+  //  Converts message to i2c_status
+  i2c_status_tx.x = msg->position.x;
+  i2c_status_tx.y = msg->position.y;
+  i2c_status_tx.theta = msg->orientation.z;
+  i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = POSE_PACKET;
+
+  //  Sends i2c_status to the 3Pi
+  // if (first_pose) {
+  Wire.beginTransmission(ROBOT_I2C_ADDR);
+  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.endTransmission();
+  first_pose = false;
+  // }
+
+}
+
+// Handles vector messages recieved from a ROS subscription
+void uncertainty_callback(const void * msgin)
+{
+  //  Cast received message to vector
+  const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
 
   //  Converts message to i2c_status
   i2c_status_tx.x = msg->x;
   i2c_status_tx.y = msg->y;
   i2c_status_tx.theta = msg->z;
   i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = UNCERTAINTY_PACKET;
 
   //  Sends i2c_status to the 3Pi
   Wire.beginTransmission(ROBOT_I2C_ADDR);
@@ -212,11 +268,20 @@ void configure_robot() {
 
   char heartbeat_topic_name[32];
   sprintf(heartbeat_topic_name, "/robot%d/heartbeat", id);
-  RCCHECK(rclc_publisher_init_best_effort(
+  RCCHECK(rclc_publisher_init_default(
     &heartbeat_publisher,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
     heartbeat_topic_name));
+  handle_count++;
+
+  char pose_topic_name[32];
+  sprintf(pose_topic_name, "/robot%d/poses", id);
+  RCCHECK(rclc_publisher_init_default(
+    &pose_publisher,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
+    pose_topic_name));
   handle_count++;
 
   //  Subscribe to the vector ROS topic, using Vector3 messages
@@ -227,6 +292,26 @@ void configure_robot() {
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Vector3),
     vector_topic_name));
+  handle_count++;
+
+  //  Subscribe to the vector ROS topic, using Vector3 messages
+  char camera_pose_topic_name[32];
+  sprintf(camera_pose_topic_name, "/robot%d/camera_poses", id);
+  RCCHECK(rclc_subscription_init_default(
+    &camera_pose_subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
+    camera_pose_topic_name));
+  handle_count++;
+
+  //  Subscribe to the vector ROS topic, using Vector3 messages
+  char uncertainty_topic_name[32];
+  sprintf(uncertainty_topic_name, "/global/uncertainty", id);
+  RCCHECK(rclc_subscription_init_default(
+    &uncertainty_subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Vector3),
+    uncertainty_topic_name));
   handle_count++;
 
   //  Subscribe to the marker ROS topic, using Int64 messages
@@ -254,6 +339,16 @@ void configure_robot() {
   RCCHECK(rclc_executor_add_subscription(
     &executor, &vector_subscriber, &vector_msg,
     &vector_callback, ON_NEW_DATA));
+
+  //  Adds the pose subscription to the executor
+  RCCHECK(rclc_executor_add_subscription(
+    &executor, &camera_pose_subscriber, &camera_pose_msg,
+    &camera_pose_callback, ON_NEW_DATA));
+
+  //  Adds the vector subscription to the executor
+  RCCHECK(rclc_executor_add_subscription(
+    &executor, &uncertainty_subscriber, &uncertainty_msg,
+    &uncertainty_callback, ON_NEW_DATA));
   
   //  Adds the marker subscription to the executor
   RCCHECK(rclc_executor_add_subscription(
@@ -266,6 +361,8 @@ void configure_robot() {
     &colour_callback, ON_NEW_DATA));
 
   delay(500);
+
+  timer.every(200, timer_callback);
 
   Serial.println("Sending id acknowledgement.");
   register_msg.data = id;
@@ -301,10 +398,6 @@ void setup() {
   //  Create a ROS node
   RCCHECK(rclc_node_init_default(&setup_node, "temporary_robot_setup_node", "", &support));
 
-
-  // handle_count++;
-  // handle_count++;
-
   RCCHECK(rclc_publisher_init_default(
     &register_publisher,
     &setup_node,
@@ -323,24 +416,32 @@ void setup() {
   RCCHECK(rclc_executor_add_subscription(
     &setup_executor, &id_subscription, &id_msg,
     &id_callback, ON_NEW_DATA));
-  // RCCHECK(rclc_executor_add_client(
-  //   &executor, &registration_client, &registration_res,
-  //   &registration_callback));
 
-
-  // RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
-
-  // lifecycle_msgs__srv__GetState_Request__init(&registration_req);
-  // int64_t sequence_number;
-  // delay(10);
-  // RCCHECK(rcl_send_request(&registration_client, &registration_req, &sequence_number));
   delay(500);
   Serial.println("ROS initialised. Requesting id.");
   register_msg.data = -1;
   RCCHECK(rcl_publish(&register_publisher, &register_msg, NULL));
 }
 
+bool timer_callback(void* args) {
+  RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
+
+  //  Gets current pose from 3Pi
+  Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
+  Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
+
+  //  Publishes current pose
+  pose_msg.position.x = i2c_status_rx.x;
+  pose_msg.position.y = i2c_status_rx.y;
+  pose_msg.orientation.z = i2c_status_rx.theta;
+  RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
+
+  return true;
+}
+
 void loop() {
+  timer.tick();
+
   //  Checks for messages from the subscriptions
   if (!configured) {
     RCCHECK(rclc_executor_spin_some(&setup_executor, RCL_MS_TO_NS(500)));
@@ -351,9 +452,7 @@ void loop() {
   }
   else {
     RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(500)));
-    RCCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
   }
-
 }
 
 void printRXStatus() {
