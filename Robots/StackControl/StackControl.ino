@@ -27,7 +27,7 @@
 
 //  ROS error handlers. Calls error_loop if check fails.
 #define RCCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Aborting.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);error_loop();}}
-#define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);}}
+#define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){/*char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);*/}}
 
 #define COLOUR(r, g, b) {((r << 24) & 0xFF000000) | ((g << 16) & 0x00FF0000) | ((b << 8) & 0x0000FF00)}
 
@@ -166,12 +166,12 @@ void camera_pose_callback(const void * msgin)
   i2c_status_tx.packet_type = POSE_PACKET;
 
   //  Sends i2c_status to the 3Pi
-  if (first_pose) {
-    Wire.beginTransmission(ROBOT_I2C_ADDR);
-    Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
-    Wire.endTransmission();
-    first_pose = false;
-  }
+  // if (first_pose) {
+  Wire.beginTransmission(ROBOT_I2C_ADDR);
+  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.endTransmission();
+  first_pose = false;
+  // }
 
   //  Sends i2c_status to the 3Pi
   Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
@@ -180,7 +180,7 @@ void camera_pose_callback(const void * msgin)
   pose_msg.position.x = i2c_status_rx.x;
   pose_msg.position.y = i2c_status_rx.y;
   pose_msg.orientation.z = i2c_status_rx.theta;
-  RCCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
+  RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 }
 
 // Handles marker messages recieved from a ROS subscription
@@ -249,7 +249,7 @@ void configure_robot() {
 
   char heartbeat_topic_name[32];
   sprintf(heartbeat_topic_name, "/robot%d/heartbeat", id);
-  RCCHECK(rclc_publisher_init_best_effort(
+  RCCHECK(rclc_publisher_init_default(
     &heartbeat_publisher,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
@@ -412,7 +412,7 @@ void loop() {
   }
   else {
     RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(500)));
-    RCCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
+    RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
   }
 
 }

@@ -21,10 +21,13 @@ Kinematics_c kinematics;
 
 #define POSE_PACKET 0
 #define FORCE_PACKET 1
+#define UNCERTAINTY_PACKET 2
 
 float force_x = 0;
 float force_y = 0;
 float goal = 0;
+float position_uncertainty = 0.3;
+float rotation_uncertainty = 0.5;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -116,9 +119,9 @@ void i2c_recvStatus(int len)
     Serial.println((String) "goal " + goal);
   }
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
-    kinematics.x_global = i2c_status_rx.x;
-    kinematics.y_global = i2c_status_rx.y;
-    kinematics.currentRotation = i2c_status_rx.theta;
+    kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
+    kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
+    kinematics.currentRotation = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotation * rotation_uncertainty;
   }
 
 
