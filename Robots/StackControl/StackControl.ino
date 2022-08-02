@@ -25,6 +25,8 @@
 
 #include <Wire.h>           // i2c to connect to IR communication board.
 
+#include <arduino-timer.h>
+
 //  ROS error handlers. Calls error_loop if check fails.
 #define RCCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Aborting.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);error_loop();}}
 #define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){/*char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);*/}}
@@ -103,6 +105,8 @@ int id = -1;
 bool configured = false;
 
 int64_t marker = 0;
+
+Timer<10> timer;
 
 //  Stops and prints an error.
 void error_loop(){
@@ -358,6 +362,8 @@ void configure_robot() {
 
   delay(500);
 
+  timer.every(200, timer_callback);
+
   Serial.println("Sending id acknowledgement.");
   register_msg.data = id;
   RCCHECK(rcl_publish(&register_publisher, &register_msg, NULL));
@@ -417,7 +423,25 @@ void setup() {
   RCCHECK(rcl_publish(&register_publisher, &register_msg, NULL));
 }
 
+bool timer_callback(void* args) {
+  RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
+
+  //  Gets current pose from 3Pi
+  Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
+  Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
+
+  //  Publishes current pose
+  pose_msg.position.x = i2c_status_rx.x;
+  pose_msg.position.y = i2c_status_rx.y;
+  pose_msg.orientation.z = i2c_status_rx.theta;
+  RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
+
+  return true;
+}
+
 void loop() {
+  timer.tick();
+
   //  Checks for messages from the subscriptions
   if (!configured) {
     RCCHECK(rclc_executor_spin_some(&setup_executor, RCL_MS_TO_NS(500)));
@@ -428,20 +452,7 @@ void loop() {
   }
   else {
     RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(500)));
-    RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
-
-    //  Gets current pose from 3Pi
-    Wire.requestFrom(ROBOT_I2C_ADDR, sizeof(i2c_status_rx));
-    Wire.readBytes((uint8_t*)&i2c_status_rx, sizeof(i2c_status_rx));
-
-    //  Publishes current pose
-    pose_msg.position.x = i2c_status_rx.x;
-    pose_msg.position.y = i2c_status_rx.y;
-    pose_msg.orientation.z = i2c_status_rx.theta;
-    RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
-
   }
-
 }
 
 void printRXStatus() {

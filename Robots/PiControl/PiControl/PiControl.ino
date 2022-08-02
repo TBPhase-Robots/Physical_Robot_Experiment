@@ -163,15 +163,22 @@ void setup()
 
 void set_z_rotation(float vel)
 {
-  if (vel == 0) {}
-  else if (vel * 30 < 25) {
-    vel = 25.0 / 30.0;
+  if (vel == 0) {
+    setLeftMotor(0);
+    setRightMotor(0);
   }
-  else if (vel * 30 > -25) {
-    vel = -25.0 / 30.0;
+  else if (vel * 30 < 22 && vel > 0) {
+    setLeftMotor(-22.0);
+    setRightMotor(22.0);
   }
-  setLeftMotor(-vel * 30);
-  setRightMotor(vel * 30);
+  else if (vel * 30 > -22 && vel < 0) {
+    setLeftMotor(22.0);
+    setRightMotor(-22.0);
+  }
+  else {
+    setLeftMotor(-vel * 30);
+    setRightMotor(vel * 30);
+  }
 }
 
 void go_forward(float vel)
@@ -219,11 +226,10 @@ void loop()
         error = -limit;
       }
     }
-    set_z_rotation(-error);
+    set_z_rotation(error);
   }
   else
   {
-    set_z_rotation(0);
     if (force_x * force_x + force_y * force_y > 0.001)
     {
       float speed = sqrt(force_x * force_x + force_y * force_y);
@@ -249,7 +255,7 @@ void loop()
   Serial.println((String) "y:" + force_y);
 
   kinematics.updateLoop();
-  delay(100);
+  // delay(1);
 }
 
 void printRXStatus()
