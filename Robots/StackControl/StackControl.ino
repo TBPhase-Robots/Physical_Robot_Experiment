@@ -272,7 +272,7 @@ void configure_robot() {
   handle_count++;
 
   char pose_topic_name[32];
-  sprintf(pose_topic_name, "/robot%d/pose", id);
+  sprintf(pose_topic_name, "/robot%d/poses", id);
   RCCHECK(rclc_publisher_init_default(
     &pose_publisher,
     &node,
@@ -292,7 +292,7 @@ void configure_robot() {
 
   //  Subscribe to the vector ROS topic, using Vector3 messages
   char camera_pose_topic_name[32];
-  sprintf(camera_pose_topic_name, "/robot%d/camera_pose", id);
+  sprintf(camera_pose_topic_name, "/robot%d/camera_poses", id);
   RCCHECK(rclc_subscription_init_default(
     &camera_pose_subscriber,
     &node,

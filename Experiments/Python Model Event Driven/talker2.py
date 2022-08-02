@@ -12,7 +12,7 @@ class Talker(Node):
     def __init__(self):
         super().__init__('talker')
         self.i = 0
-        self.pub = self.create_publisher(String, '/robot0/pose', 10)
+        self.pub = self.create_publisher(String, '/robot0/poses', 10)
         timer_period = 1.0
         self.tmr = self.create_timer(timer_period, self.timer_callback)
 

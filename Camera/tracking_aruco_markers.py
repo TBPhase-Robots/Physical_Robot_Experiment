@@ -255,7 +255,7 @@ class ArucoTrack(Node):
         """
         As the Aruco gives an ID number, a dictionary containing all the publishing objects is created, with each robots publisher as the key
         """
-        pub_name = f"/robot{ID}/camera_pose"
+        pub_name = f"/robot{ID}/camera_poses"
         mid_name = f"/robot{ID}/middle"
         self.pub_dict[ID] = self.create_publisher(Pose, pub_name, 10)
         self.middle_pubs[ID] = self.create_publisher(Pose,mid_name,10)
