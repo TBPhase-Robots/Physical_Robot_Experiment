@@ -89,7 +89,7 @@ void i2c_sendStatus()
   // Populate our current status
   i2c_status_tx.x = kinematics.x_global;
   i2c_status_tx.y = kinematics.y_global;
-  i2c_status_tx.theta = kinematics.currentRotation;
+  i2c_status_tx.theta = kinematics.currentRotationCutoff;
 
   // Send up
   Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
@@ -121,7 +121,7 @@ void i2c_recvStatus(int len)
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
     kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
     kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
-    kinematics.currentRotation = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotation * rotation_uncertainty;
+    kinematics.currentRotationCutoff = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotationCutoff * rotation_uncertainty;
   }
   else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
     position_uncertainty = i2c_status_rx.x;
@@ -163,6 +163,13 @@ void setup()
 
 void set_z_rotation(float vel)
 {
+  if (vel == 0) {}
+  else if (vel * 30 < 25) {
+    vel = 25.0 / 30.0;
+  }
+  else if (vel * 30 > -25) {
+    vel = -25.0 / 30.0;
+  }
   setLeftMotor(-vel * 30);
   setRightMotor(vel * 30);
 }
@@ -192,7 +199,7 @@ float between_pi(float angle) {
 void loop()
 {
 
-  float theta = kinematics.currentRotation; 
+  float theta = kinematics.currentRotationCutoff; 
   float error = goal - theta;
 
   theta = between_pi(theta);
@@ -212,7 +219,7 @@ void loop()
         error = -limit;
       }
     }
-    set_z_rotation(error);
+    set_z_rotation(-error);
   }
   else
   {
