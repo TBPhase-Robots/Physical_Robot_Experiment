@@ -41,6 +41,7 @@
 
 #define POSE_PACKET 0
 #define FORCE_PACKET 1
+#define UNCERTAINTY_PACKET 2
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -68,6 +69,9 @@ geometry_msgs__msg__Vector3 vector_msg;
 
 rcl_subscription_t camera_pose_subscriber;
 geometry_msgs__msg__Pose camera_pose_msg;
+
+rcl_subscription_t uncertainty_subscriber;
+geometry_msgs__msg__Vector3 uncertainty_msg;
 
 rcl_publisher_t pose_publisher;
 geometry_msgs__msg__Pose pose_msg;
@@ -183,6 +187,25 @@ void camera_pose_callback(const void * msgin)
   RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 }
 
+// Handles vector messages recieved from a ROS subscription
+void uncertainty_callback(const void * msgin)
+{
+  //  Cast received message to vector
+  const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
+
+  //  Converts message to i2c_status
+  i2c_status_tx.x = msg->x;
+  i2c_status_tx.y = msg->y;
+  i2c_status_tx.theta = msg->z;
+  i2c_status_tx.status = 0;
+  i2c_status_tx.packet_type = UNCERTAINTY_PACKET;
+
+  //  Sends i2c_status to the 3Pi
+  Wire.beginTransmission(ROBOT_I2C_ADDR);
+  Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.endTransmission();
+}
+
 // Handles marker messages recieved from a ROS subscription
 void marker_callback(const void * msgin)
 {
@@ -285,6 +308,16 @@ void configure_robot() {
     camera_pose_topic_name));
   handle_count++;
 
+  //  Subscribe to the vector ROS topic, using Vector3 messages
+  char uncertainty_topic_name[32];
+  sprintf(uncertainty_topic_name, "/global/uncertainty", id);
+  RCCHECK(rclc_subscription_init_default(
+    &uncertainty_subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Vector3),
+    uncertainty_topic_name));
+  handle_count++;
+
   //  Subscribe to the marker ROS topic, using Int64 messages
   char marker_topic_name[32];
   sprintf(marker_topic_name, "/robot%d/markers", id);
@@ -315,6 +348,11 @@ void configure_robot() {
   RCCHECK(rclc_executor_add_subscription(
     &executor, &camera_pose_subscriber, &camera_pose_msg,
     &camera_pose_callback, ON_NEW_DATA));
+
+  //  Adds the vector subscription to the executor
+  RCCHECK(rclc_executor_add_subscription(
+    &executor, &uncertainty_subscriber, &uncertainty_msg,
+    &uncertainty_callback, ON_NEW_DATA));
   
   //  Adds the marker subscription to the executor
   RCCHECK(rclc_executor_add_subscription(
@@ -362,10 +400,6 @@ void setup() {
   //  Create a ROS node
   RCCHECK(rclc_node_init_default(&setup_node, "temporary_robot_setup_node", "", &support));
 
-
-  // handle_count++;
-  // handle_count++;
-
   RCCHECK(rclc_publisher_init_default(
     &register_publisher,
     &setup_node,
@@ -384,17 +418,7 @@ void setup() {
   RCCHECK(rclc_executor_add_subscription(
     &setup_executor, &id_subscription, &id_msg,
     &id_callback, ON_NEW_DATA));
-  // RCCHECK(rclc_executor_add_client(
-  //   &executor, &registration_client, &registration_res,
-  //   &registration_callback));
 
-
-  // RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
-
-  // lifecycle_msgs__srv__GetState_Request__init(&registration_req);
-  // int64_t sequence_number;
-  // delay(10);
-  // RCCHECK(rcl_send_request(&registration_client, &registration_req, &sequence_number));
   delay(500);
   Serial.println("ROS initialised. Requesting id.");
   register_msg.data = -1;

@@ -123,10 +123,10 @@ void i2c_recvStatus(int len)
     kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
     kinematics.currentRotation = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotation * rotation_uncertainty;
   }
-
-
-
-  // goal = -kinematics.currentRotation + atan2(force_y,force_x) ;
+  else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
+    position_uncertainty = i2c_status_rx.x;
+    rotation_uncertainty = i2c_status_rx.theta;
+  }
 }
 
 void setup()
