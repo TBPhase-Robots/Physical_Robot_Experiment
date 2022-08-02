@@ -518,6 +518,14 @@ def main(show_empowerment=False):
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"
 
+
+                stationaryAgents = [pack, standby, pigs]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+
+                sheepPositions = cfg['initial_sheep_positions']
+                pos = sheepPositions[0]
+                pathfindingManager.FindPath(GetAnyAgentFromGroup(flock), pos)
+
                 
 
             if(state == "sheep_setup_loop"):
