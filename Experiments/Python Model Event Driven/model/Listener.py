@@ -14,7 +14,7 @@ class Listener(Node):
         
         super().__init__(f'listener{id}')
 
-        topic_name = f'/robot{id}/pose'
+        topic_name = f'/robot{id}/poses'
         print("created subscription: " , topic_name)
         self.sub = self.create_subscription(Pose, topic_name, controller_callback, 10)
       
