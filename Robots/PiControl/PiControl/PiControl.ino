@@ -28,6 +28,8 @@ float force_y = 0;
 float goal = 0;
 float position_uncertainty = 0.3;
 float rotation_uncertainty = 0.5;
+float leftVel = 30;
+float rightVel = 30;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -185,6 +187,8 @@ void go_forward(float vel)
 {
   setLeftMotor(vel);
   setRightMotor(vel);
+  leftVel = vel ;
+  rightVel = vel ;
 }
 
 float between_pi(float angle) {
@@ -215,7 +219,7 @@ void loop()
   if (abs(error) > 0.2)
   {
     float limit = 0.75;
-    if (abs(error) < limit)
+    /*if (abs(error) < limit) // commented out as not required for differential drive system as never approaches 0 speed
     {
       if (error > 0)
       {
@@ -225,8 +229,19 @@ void loop()
       {
         error = -limit;
       }
-    }
-    set_z_rotation(error);
+    }*/
+  float baseSpeed = 30 ;
+  float turnRate = 40; // larger value = smaller turning circle
+  if (error<0){
+    // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
+    leftVel = baseSpeed - error*turnRate ;
+    rightVel = baseSpeed ;}
+  else{
+    // you need to turn anticlockwise, need to increase right wheel 
+    leftVel = baseSpeed ;
+    rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
+  setLeftMotor(leftVel);
+  setRightMotor(rightVel);
   }
   else
   {
