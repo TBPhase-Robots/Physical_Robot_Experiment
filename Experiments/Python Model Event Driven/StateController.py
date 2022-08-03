@@ -1,5 +1,7 @@
 from tkinter import *
 
+from pygame import Color
+
 from std_msgs.msg import Int32
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -43,6 +45,12 @@ class Window(Frame):
         recallButton = Button(self, text="Recall", command=self.clickRecallButton)
 
         addAgentButton = Button(self, text="Add Agent", command=self.clickAddAgentButton)
+        setAgentsToStandbyButton = Button(self, text="SetAllToStandby", command=self.clickStandbyButton)
+        sendNewJsonButton = Button(self, text="Set JSON config", command=self.clickSendNewJsonButton)
+
+        self.T = Text(root, height = 3, width = 45)
+
+        self.T.place(x = 50, y = 500)
         # place button at (0,0)
         setupStartButton.place(x=100, y=0)
      #   sheepSetupLoopButton.place(x=100, y = 50)
@@ -50,20 +58,38 @@ class Window(Frame):
         pigSetupLoopButton.place(x=100, y=100)
         standbySetupLoopButton.place(x=100, y = 150)
         experimentButton.place(x=100, y=200)
+        
 
         dispatchButton.place(x=100, y=250)
         recallButton.place(x=200, y=250)
         addAgentButton.place(x=200, y = 300)
+        setAgentsToStandbyButton.place(x=100, y = 350)
+        sendNewJsonButton.place(x=100, y = 400)
+        
         # define command publisher
         commandListenerTopicName = "/controller/command"
         dispatchListenerTopicName = "/controller/dispatch"
         agentListenerTopicName = "/global/robots/added"
+        jsonListenerTopicName = "/controller/config"
         self.statePublisher = Publisher(commandListenerTopicName) 
         self.dispatchPublisher = Publisher(dispatchListenerTopicName)
         self.agentPublisher = IntPublisher(agentListenerTopicName)
-
+        self.jsonPublisher = Publisher(jsonListenerTopicName)
         self.i = 0
 
+
+
+    def clickSendNewJsonButton(self):
+        print("sent new json")
+        msg = String()
+        msg.data = self.T.get("1.0", "end-1c")
+        print(msg.data)
+        self.jsonPublisher.pub.publish(msg)
+
+    def clickStandbyButton(self):
+        msg = String()
+        msg.data = "set_to_standby"
+        self.statePublisher.pub.publish(msg)
     def clickSetupStartButton(self):
 
         msg = String()
@@ -162,7 +188,7 @@ rclpy.init(args=None)
 root = Tk()
 app = Window(root)
 root.wm_title("Tkinter button")
-root.geometry("320x400")
+root.geometry("320x600")
 root.mainloop()
 
     

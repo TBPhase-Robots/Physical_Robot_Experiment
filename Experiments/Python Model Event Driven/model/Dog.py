@@ -46,7 +46,7 @@ class Dog(Agent):
         self.direction = np.array([1, 0])
         self.rotation = rotation
         self.callback = callback
-        topicString = "/robot" + str(self.id) + "/pose"
+        topicString = "/robot" + str(self.id) + "/poses"
 
         # dog
         self.sub_flock = pygame.sprite.Group()

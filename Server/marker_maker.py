@@ -21,7 +21,6 @@ def marker_to_int(marker_num):
             
             if pixel == 255:
                 output |= (1 << shift)
-                print(output)
             shift += 1
 
 
@@ -29,17 +28,17 @@ def marker_to_int(marker_num):
     return output
 
 def main():
+    number = 103
     fig = plt.figure()
     nx = 1
     ny = 1
-    for i in range(103, nx*ny+103):
+    for i in range(number, nx*ny+number):
         ax = fig.add_subplot(ny,nx, 1)
         img = aruco.drawMarker(aruco_dict,i, 700)
         plt.imshow(img, cmap = mpl.cm.gray, interpolation = "nearest")
         ax.axis("off")
 
-    print("marker_to_int")
-    print(marker_to_int(3))
+    print(marker_to_int(number))
 
     
 

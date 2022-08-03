@@ -56,13 +56,36 @@ config_name='defaultConfig'
 rclpy.init(args=None)
 simulationNode = SimulationNode()
 
-
+cfg =0
 with open(f"experiment_config_files/{config_name}.json") as json_file:
     cfg = json.load(json_file)
 
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
 
+
+# callback invoked by state controller to change the current config file
+def SetConfigCallback(data):
+    # set the config that we're going to use mid-experiment
+    global cfg
+    cfgName = data.data
+
+    try:
+        with open(f"experiment_config_files/{cfgName}.json") as json_file:
+            cfg = json.load(json_file)
+            print("changed cfg to ", cfgName)
+            
+            state == "standby_setup_loop"
+            print("simulation state changed to ", state)
+
+            for agent in agents:
+                agent.SetAgentConfig(cfg)
+
+            SortAgentsByRole()
+    except:
+        print("incorrect file name ", cfgName)
+
+   
 
 # controller callback is called by an agent whenever it has successfully updated its state via ROS pose
 def ControllerCallback(data):
@@ -101,7 +124,15 @@ def CommandListenerCallback(data):
     global state
     print("CommandListenerData:")
     print(data.data)
-    state = data.data
+
+    # if set all to standby
+    if(data.data == "set_to_standby"):
+        for agent in agents:
+            agent.role = "standby"
+        
+        SortAgentsByRole()
+    else:
+        state = data.data
 
 def calc_voronoi_partitioning(flock, pack):
     for dog in pack:
@@ -320,7 +351,7 @@ def main(show_empowerment=False):
     commandListenerTopicName = "/controller/command"
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
-
+    jsonListenerTopicName = "/controller/config"
 
     
 
@@ -333,7 +364,7 @@ def main(show_empowerment=False):
     # define the add agent listener
     agentListener = simulationNode.CreateAgentListener(agentListenerTopicName, add_agent_callback)
 
-
+    jsonListener= simulationNode.CreateStringListener(jsonListenerTopicName, SetConfigCallback)
 
     # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
