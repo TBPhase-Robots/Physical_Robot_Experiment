@@ -22,6 +22,8 @@ Kinematics_c kinematics;
 float global_x = 0;
 float global_y = 10;
 float goal = 0;
+float leftVel = 30;
+float rightVel = 30;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -105,7 +107,7 @@ void i2c_recvStatus(int len)
 
   global_x = i2c_status_rx.x;
   global_y = i2c_status_rx.y;
-  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2;
+  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2; // THIS IS ONLY COMMENTED OUT FOR TESTING PURPOSES WITHOUT THE CAMERA
 
   float angle = atan2(global_y, global_x);
 
@@ -158,6 +160,8 @@ void go_forward(float vel)
 {
   setLeftMotor(vel);
   setRightMotor(vel);
+  leftVel = vel ;
+  rightVel = vel ;
 }
 
 void loop()
@@ -192,10 +196,10 @@ void loop()
       error += 2 * PI;
     }
   }
-  if (abs(error) > 0.2)
-  {
+  // error goes negative when you want to turn clockwise 
+  if (abs(error) > 0.1){
     float limit = 0.75;
-    if (abs(error) < limit)
+    /*if (abs(error) < limit) // commented out as not required for differential drive system as never approaches 0 speed
     {
       if (error > 0)
       {
@@ -205,8 +209,19 @@ void loop()
       {
         error = -limit;
       }
-    }
-    set_z_rotation(error);
+    }*/
+  float baseSpeed = 30 ;
+  float turnRate = 40; // larger value = smaller turning circle
+  if (error<0){
+    // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
+    leftVel = baseSpeed - error*turnRate ;
+    rightVel = baseSpeed ;}
+  else{
+    // you need to turn anticlockwise, need to increase right wheel 
+    leftVel = baseSpeed ;
+    rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
+  setLeftMotor(leftVel);
+  setRightMotor(rightVel);
   }
   else
   {
@@ -215,7 +230,7 @@ void loop()
     {
       float speed = sqrt(global_x * global_x + global_y * global_y);
       if (speed > MAX_SPEED) {
-        go_forward(50.0);
+        go_forward(30.0);
       }
       else {
         speed *= SPEED_SCALE;
@@ -230,8 +245,8 @@ void loop()
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "x: " + global_x);
-  Serial.println((String) "y:" + global_y);
+  Serial.println((String) "left vel: " + leftVel);
+  Serial.println((String) "right vel:" + rightVel);
 
   kinematics.updateLoop();
   delay(100);
