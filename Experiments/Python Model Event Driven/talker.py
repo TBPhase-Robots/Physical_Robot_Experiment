@@ -16,7 +16,7 @@ class Talker(Node):
 
         
         self.i = 0
-        self.pub = self.create_publisher(Pose, '/robot0/pose', 10)
+        self.pub = self.create_publisher(Pose, '/robot0/poses', 10)
         timer_period = 0.1
         self.tmr = self.create_timer(timer_period, self.timer_callback)
 

@@ -45,7 +45,7 @@ class Kinematics_c {
     float interval = 0;
     float Xr = 0;
     float rotationalChange = 0;
-    float currentRotation = 0;
+    // float currentRotation = 0;
     float currentRotationCutoff = 0;
     float movementMultiplier = 3;
 
@@ -79,7 +79,7 @@ class Kinematics_c {
       interval = 0;
       Xr = 0;
       rotationalChange = 0;
-      currentRotation = 0;
+      // currentRotation = 0;
       currentRotationCutoff = 0;
 
       count_difference_left_cum_mean = 0;
@@ -155,12 +155,12 @@ class Kinematics_c {
       // define new rotation
       // defined as last rotaion in radians, plus rotational change
       // 0i = 0i + 0r
-      currentRotation += rotationalChange;
+      // currentRotation += rotationalChange;
       currentRotationCutoff += rotationalChange;
-      if(currentRotationCutoff > 2 * PI){
+      if(currentRotationCutoff > PI){
         currentRotationCutoff = currentRotationCutoff - 2 * PI;
       }
-      else if (currentRotationCutoff < -2 * PI){
+      else if (currentRotationCutoff < -PI){
         currentRotationCutoff = currentRotationCutoff + 2 * PI;
       }
       // convert local motion to global motion
@@ -168,8 +168,8 @@ class Kinematics_c {
       // Xdelta = Xr * cos(0i)
       // Ydelta = Xr * sin(0i)
 
-      double Xdelta = Xr * cos(currentRotation) * movementMultiplier;
-      double Ydelta = Xr * sin(currentRotation) * movementMultiplier;
+      double Xdelta = Xr * cos(currentRotationCutoff) * movementMultiplier;
+      double Ydelta = Xr * sin(currentRotationCutoff) * movementMultiplier;
       // update rotation matrix
 
       // apply new displacement by:
