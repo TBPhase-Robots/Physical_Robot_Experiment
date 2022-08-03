@@ -34,6 +34,7 @@ from geometry_msgs.msg import Pose, Vector3
 from pathfinding.core.diagonal_movement import DiagonalMovement
 from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
+from pathfinding.finder.dijkstra import DijkstraFinder
 
 
 class PathfindingManager():
@@ -41,7 +42,7 @@ class PathfindingManager():
     def __init__(self, screen, cfg):
         print("pathfinding engage")
 
-
+        self.cfg = cfg
         self.pathFindingWidth = cfg['path_finding_width']
         self.pathFindingHeight = cfg['path_finding_height']
         self.worldWidth = cfg['world_width']
@@ -53,14 +54,49 @@ class PathfindingManager():
         self.screen = screen 
         self.worldMatrix = [0,1]
 
-        
+    def IsInTile(self, screenCoordinates, tileCoordinates):
 
-    def GenerateWorldMatrix(self, stationaryAgentsTuple):
+        tileTopLeft_x = int(self.pathFindingGridSquareWidth * tileCoordinates[1])
+        tileTopLeft_y = int(self.pathFindingGridSquareHeight * tileCoordinates[0])
+
+        if(screenCoordinates[0] > tileTopLeft_x and screenCoordinates[0] < tileTopLeft_x+self.pathFindingGridSquareWidth  and screenCoordinates[1] > tileTopLeft_y and screenCoordinates[1] < tileTopLeft_y + self.pathFindingGridSquareHeight):
+            print("tile occupied by fat agent: " , tileCoordinates)
+            return True
+        else:
+            return False
+
+    def ConvertScreenPosToPathFindingPos(self, pos):
+        print("ConvertScreenPosToPathFindingPos")
+        pathFindingPosX = int(pos[0] / self.pathFindingGridSquareWidth)
+        pathFindingPosY = int(pos[1] / self.pathFindingGridSquareHeight)
+
+        # world matrix is addressed y,x
+        # but return x y in grid
+        return [pathFindingPosX, pathFindingPosY]
+
+
+    def GetAgentsInTheWay(self, targetPositions, agentRole, agents):
+        robotsInTheWay = []
+        for pos in targetPositions:
+            sheepPositionTile = self.ConvertScreenPosToPathFindingPos(pos)
+            for agent in agents:
+                if(not agent.role == agentRole):
+                    agentPositionTile = self.ConvertScreenPosToPathFindingPos(agent.position)
+                    if(agentPositionTile[0] == sheepPositionTile[0] and agentPositionTile[1] == sheepPositionTile[1] ):
+                        robotsInTheWay.append(agent)  
+
+        return robotsInTheWay    
+
+    def GenerateWorldMatrix(self, stationaryAgentsTuple, endPoints):
 
         stationaryAgents = []
         for group in stationaryAgentsTuple:
             for agent in group:
                 stationaryAgents.append(agent)
+
+       
+            
+
 
         
         np.set_printoptions(threshold=np.inf)
@@ -69,7 +105,9 @@ class PathfindingManager():
 
         # generate numpy matrix
         worldMatrix = np.ones((self.pathFindingWorld_y ,self.pathFindingWorld_x ), dtype=float)
+        agentRadius = self.cfg['agent_radius']
 
+        
 
         for x in range(self.pathFindingWorld_x):
             for y in range (self.pathFindingWorld_y):
@@ -78,14 +116,54 @@ class PathfindingManager():
 
                 agentsInTile = 0
 
+
+
                 # check if there is an agent in the current square
                 for agent in stationaryAgents:
                     if(agent.position[0] > curX and agent.position[0] < curX+self.pathFindingGridSquareWidth  and agent.position[1] > curY and agent.position[1] < curY + self.pathFindingGridSquareHeight):
                         agentsInTile = 1
 
+                for point in endPoints:
+                    if(point[0] > curX and point[0] < curX+self.pathFindingGridSquareWidth  and point[1] > curY and point[1] < curY + self.pathFindingGridSquareHeight):
+                        agentsInTile = 1
+
+
+
                 # if so, add 1 to the numpy matrix
                 if(agentsInTile > 0):
-                    worldMatrix[y, x] -= 1
+                    worldMatrix[y, x] = -1
+
+                    # get screen pos, add agent radius up, down, left, and right
+                    screenDown =  np.array([agent.position[0], agent.position[1] + agentRadius*1.4])
+                    screenUp = np.array([agent.position[0], agent.position[1] - agentRadius*1.4])
+                    
+                    screenLeft = np.array([agent.position[0] - agentRadius*1.4, agent.position[1]])
+                    screenRight = np.array([agent.position[0] + agentRadius*1.4, agent.position[1]])
+
+                   # diagLength = math.sqrt(diagLength * np.diag)
+
+                    screenUpRight = np.array([agent.position[0] + agentRadius, agent.position[1] - agentRadius])
+
+                    # check if world up, down left and right are in tiles
+                    if(y < self.pathFindingWorld_y -1):
+                        if(self.IsInTile(screenCoordinates = screenDown, tileCoordinates=[y+1, x])):
+                            worldMatrix[y+1, x] = -1
+
+                    if(y > 0):
+                        if(self.IsInTile(screenCoordinates = screenUp, tileCoordinates=[y-1, x])):
+                            worldMatrix[y-1, x] = -1
+
+                    if(x < self.pathFindingWorld_x -1):
+                        if(self.IsInTile(screenCoordinates = screenRight, tileCoordinates=[y, x+1])):
+                            worldMatrix[y, x+1] = -1
+
+                    if(x > 0):
+                        if(self.IsInTile(screenCoordinates = screenLeft, tileCoordinates=[y, x-1])):
+                            worldMatrix[y, x-1] = -1
+
+                    
+
+
 
                     # add 1 to adjacent tiles
                     #if(x < 15):
@@ -113,6 +191,8 @@ class PathfindingManager():
         pathFindingPosX = int(agentPos[0] / self.pathFindingGridSquareWidth)
         pathFindingPosY = int(agentPos[1] / self.pathFindingGridSquareHeight)
 
+
+
         print("pathfinding coordinates ", pathFindingPosX, " ", pathFindingPosY)
 
         # convert target position to pathfinding space
@@ -124,7 +204,7 @@ class PathfindingManager():
         lastTileValue = self.worldMatrix[pathFindingPosY, pathFindingPosX]
         # if agent shares tile with stationary:
         self.worldMatrix[pathFindingPosY, pathFindingPosX] = 1
-
+        self.worldMatrix[pathFindingTargetPosY, pathFindingTargetPosX] = 1
         # calculate path
        
 
@@ -134,7 +214,7 @@ class PathfindingManager():
 
         endPos = grid.node(pathFindingTargetPosX, pathFindingTargetPosY)
 
-        finder = AStarFinder(diagonal_movement=DiagonalMovement.never)
+        finder = DijkstraFinder(diagonal_movement=DiagonalMovement.only_when_no_obstacle)
         
         print(startPos)
         print(endPos)
@@ -151,6 +231,7 @@ class PathfindingManager():
         # set current pathfinding position back to what it once was
 
         self.worldMatrix[pathFindingPosY, pathFindingPosX] = lastTileValue
+        self.worldMatrix[pathFindingTargetPosY, pathFindingTargetPosX] = -1
 
         # return midpoints of screen space of each tile in the path
         screenCoordinatesPath = []

@@ -795,8 +795,8 @@ class Agent(pygame.sprite.Sprite):
                     self.rotation += 0.2
                     self.position = np.add(self.position, [2*forwardX, -2*forwardY])
                 else:
-                    if(np.linalg.norm(F) > 10 and not outOfBounds):
-                        F /= (np.linalg.norm(F) /10)
+                    if(np.linalg.norm(F) > 15 and not outOfBounds):
+                        F /= (np.linalg.norm(F) /2)
                     
                     self.position = np.add(self.position, np.array(F))
 

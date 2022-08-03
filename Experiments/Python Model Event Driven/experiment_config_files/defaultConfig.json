@@ -7,8 +7,8 @@
     "play_area_height" : 690, 
     "time_limit" : 5000,
 
-    "path_finding_width" : 12,
-    "path_finding_height" : 7,
+    "path_finding_width" : 16,
+    "path_finding_height" : 9,
 
 
     "show_empowerment" : true,
@@ -16,8 +16,8 @@
     "cam_width" : 2.0,
     "cam_height" : 1.0,
 
-    "event_driven" : false,
-    "event_driven_lock_movements" : false,
+    "event_driven" : true,
+    "event_driven_lock_movements" : true,
 
     "debug_dog_forces" : false,
     "debug_sheep_forces" : false,
@@ -29,9 +29,9 @@
     "empowerment_type" : 1,
 
     "initial_sheep_positions" : [[400, 500], [300, 500]],
-    "initial_dog_positions" : [[440, 200], [340, 200], [240, 200]],
+    "initial_dog_positions" : [[440, 350], [340, 350], [240, 350]],
     "standby_positions" : [[150, 150], [350, 150], [550, 150], [750, 150], [950, 150]],
-    "pigsty_positions" : [[25, 50], [25, 75], [50, 50], [50, 75], [75, 50], [75, 75], [100, 50], [100, 75], [125, 50], [125, 75]], 
+    "pigsty_positions" : [[50, 50], [50, 200], [50, 350], [50, 500], [75, 650]], 
 
     "target_position" : [800, 610],
 

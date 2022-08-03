@@ -1,4 +1,3 @@
-import imp
 import pygame
 import colours
 import sys
@@ -241,7 +240,7 @@ def FollowPathDecision(agent: Agent, path, cfg):
         if(len(path) == 1):
             pathFindingTileRadius = 5
         
-        if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius):
+        if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius/2):
             agent.MoveToPoint(point_x = targetPos[0], point_y = targetPos[1], screen = screen, agents = agents, cfg = cfg)
         else:
             path = path[1:]
@@ -444,6 +443,53 @@ def main(show_empowerment=False):
         if(sendUpdates or not cfg['event_driven']):
            
 
+            if(state == "shuffle"):
+                # get all robots and their end positions
+
+                # if a robot is in an end node that is not theirs
+                global robotsInTheWay
+                robotsInTheWay = []
+
+                sheepPositions = cfg['initial_sheep_positions']
+                dogPositions = cfg['initial_dog_positions']
+                standbyPositions = cfg['standby_positions']
+                pigPositions = cfg['pigsty_positions']
+                # add all non sheep agents who are in the way of sheep destinations to robotsInTheWay
+                robotsInTheWay.append(pathfindingManager.GetAgentsInTheWay(targetPositions=sheepPositions, agentRole='sheep', agents = agents))
+
+                # add all non dog agents who are in the way of sheep destinations to robotsInTheWay
+                robotsInTheWay.append(pathfindingManager.GetAgentsInTheWay(targetPositions=sheepPositions, agentRole='dog', agents = agents))
+
+                # add all non standby agents who are in the way of sheep destinations to robotsInTheWay
+                robotsInTheWay.append(pathfindingManager.GetAgentsInTheWay(targetPositions=sheepPositions, agentRole='standby', agents = agents))
+
+                # add all non standby agents who are in the way of sheep destinations to robotsInTheWay
+                robotsInTheWay.append(pathfindingManager.GetAgentsInTheWay(targetPositions=sheepPositions, agentRole='pigs', agents = agents))
+                
+                flat_list = []
+                for sublist in robotsInTheWay:
+                    for item in sublist:
+                        flat_list.append(item)
+                        
+                stationaryAgents = []
+                # for every agent, if it is not in flat list, add it to stationary
+                for agent in agents:
+                    agentId = agent.id
+                    fail = False
+                    for robot in flat_list:
+                        if(agent_id == robot.id):
+                            fail = True
+                    if(not fail):
+                        stationaryAgents.append(agent)
+
+
+
+
+                endpoints = []
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents=stationaryAgents, endPoints=endpoints)
+                # for each agent in flat list, give them the nearest non occupied space to follow
+
+
             if(state == "setup_start"):
 
 
@@ -504,10 +550,12 @@ def main(show_empowerment=False):
                 
 
 
-                stationaryAgents = [pack, standby, pigs]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
 
-                sheepPositions = cfg['initial_sheep_positions']
+
+                stationaryAgents = [pack, standby, pigs]
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents, sheepPositions)
+
+                
                 i =0
                 for sheep in flock:
                     pos = sheepPositions[i]
@@ -517,16 +565,10 @@ def main(show_empowerment=False):
 
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"
+                            
+             
 
-
-                stationaryAgents = [pack, standby, pigs]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
-
-                sheepPositions = cfg['initial_sheep_positions']
-                pos = sheepPositions[0]
-                pathfindingManager.FindPath(GetAnyAgentFromGroup(flock), pos)
-
-                
+            
 
             if(state == "sheep_setup_loop"):
 
@@ -539,8 +581,9 @@ def main(show_empowerment=False):
 
                 i = 0
                 stationaryAgents = [flock, standby, pigs]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
                 dogPositions = cfg['initial_dog_positions']
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents, dogPositions)
+                
                 for dog in pack:
                     pos = dogPositions[i]
                     dog.SetPath(pathfindingManager.FindPath(dog, pos))
@@ -556,8 +599,9 @@ def main(show_empowerment=False):
             if(state == "pig_setup_start"):
                 i = 0
                 stationaryAgents = [flock, standby, pack]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
                 pigPositions = cfg['pigsty_positions']
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents, pigPositions)
+                
                 for pig in pigs:
                     pos = pigPositions[i]
                     pig.SetPath(pathfindingManager.FindPath(pig, pos))
@@ -575,7 +619,7 @@ def main(show_empowerment=False):
                 i = 0
                 standbyPositions = cfg['standby_positions']
                 stationaryAgents = [flock, pigs, pack]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents)
+                pathfindingManager.GenerateWorldMatrix(stationaryAgents, standbyPositions)
                 for agent in standby:
                     pos = standbyPositions[i]
                     agent.SetPath(pathfindingManager.FindPath(agent, pos))
