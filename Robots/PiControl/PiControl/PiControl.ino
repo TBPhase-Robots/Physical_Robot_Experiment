@@ -232,16 +232,25 @@ void loop()
     {
       float baseSpeed = speed;
       // float turnRate = 40; // larger value = smaller turning circle
+
+      float scaled_error = error * TURNING_MULTIPLIER;
+      if (scaled_error > PI) {
+        scaled_error = PI;
+      }
+      if (scaled_error < -PI) {
+        scaled_error = -PI;
+      }
+
       if (error > 0){
         // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
         // leftVel = baseSpeed - error*turnRate ;
-        leftVel = baseSpeed * cos(error * TURNING_MULTIPLIER);
+        leftVel = baseSpeed * cos(scaled_error);
         rightVel = baseSpeed;
       }
       else{
         // you need to turn anticlockwise, need to increase right wheel 
         leftVel = baseSpeed ;
-        rightVel = baseSpeed * cos(error * TURNING_MULTIPLIER);
+        rightVel = baseSpeed * cos(scaled_error);
       }
         // rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
       setLeftMotor(leftVel);
