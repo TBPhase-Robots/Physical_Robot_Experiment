@@ -218,6 +218,19 @@ void loop()
   theta = between_pi(theta);
   error = between_pi(error);
 
+  if (abs(error)>PI/2) {
+    float baseSpeed = -30 ;
+    float turnRate = -40; // larger value = smaller turning circle
+    if(error>0)
+    {
+      goal -= PI;
+    }
+    else
+    {
+      goal += PI;
+    }
+  }
+
   if (force_x * force_x + force_y * force_y > 0.001)
   {
     float speed = sqrt(force_x * force_x + force_y * force_y);
