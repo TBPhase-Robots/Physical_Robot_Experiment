@@ -155,8 +155,8 @@ def calc_voronoi_partitioning(flock, pack):
 def add_agent(agents, position, cfg, id, screen, simulationNode):
     agent = Agent(position = position, id = id, cfg = cfg, rotation=0.0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
     agents.add(agent)
-
-    
+    add_sound = pygame.mixer.Sound("audio/added_test.mp3")
+    pygame.mixer.Sound.play(add_sound)
     agent.PublishForceToTopic(np.array([0.0,0.0]), screen)
     # agent.role = 'agent'
     return id + 1
@@ -344,7 +344,32 @@ def SortAgentsByRole():
             print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - STANDBY")
 
         
+def isInRectangle(centerX, centerY, radius, x, y):
 
+        return x >= centerX - radius and x <= centerX + radius and y >= centerY - radius and y <= centerY + radius 
+
+#test if coordinate (x, y) is within a radius from coordinate (center_x, center_y)
+def isPointInCircle(centerX, centerY, radius, x, y):
+    if(isInRectangle(centerX, centerY, radius, x, y)):
+        dx = centerX - x
+        dy = centerY - y
+        dx *= dx
+        dy *= dy
+        distanceSquared = dx + dy
+        radiusSquared = radius * radius
+        return distanceSquared <= radiusSquared
+    return False
+
+def RemoveAgent(agent, agentRemovalRequestPublisher):
+    print("removing agent ", agent.id)
+    msg = Int32()
+    msg.data = agent.id
+    agentRemovalRequestPublisher.publish(msg)
+    agents.remove(agent)
+    SortAgentsByRole()
+
+    add_sound = pygame.mixer.Sound("audio/remove_test.mp3")
+    pygame.mixer.Sound.play(add_sound)
 
 
 def main(show_empowerment=False):
@@ -389,6 +414,7 @@ def main(show_empowerment=False):
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
     jsonListenerTopicName = "/controller/config"
+    agentRemovalPublisherTopicName = "/global/agents/removal_requests"
 
     
 
@@ -402,6 +428,8 @@ def main(show_empowerment=False):
     agentListener = simulationNode.CreateAgentListener(agentListenerTopicName, add_agent_callback)
 
     jsonListener= simulationNode.CreateStringListener(jsonListenerTopicName, SetConfigCallback)
+
+    agentRemovalRequestPublisher = simulationNode.CreateIntPublisher(agentRemovalPublisherTopicName)
 
     # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
@@ -432,7 +460,11 @@ def main(show_empowerment=False):
                         closest_agent = None
                         # get boundary of agent
                         for agent in agents:
-                            print(" ")
+                            if(isPointInCircle(centerX = agent.position[0], centerY=agent.position[1], radius=cfg['agent_radius'], x = clickPos[0], y = clickPos[1])):
+                                # remove agent
+                                print("REMOVE THE AGENT FROM THE BOTTOM OF THE SCREEN")
+                                closest_agent = agent
+                                RemoveAgent(agent, agentRemovalRequestPublisher)
 
                     # then remove it
 

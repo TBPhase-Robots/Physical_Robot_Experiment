@@ -223,6 +223,9 @@ class Agent(pygame.sprite.Sprite):
         return bearing1, bearing2
     #end function 
 
+    def text_objects(self, text, font):
+        textSurface = font.render(text, True, colours.RED)
+        return textSurface, textSurface.get_rect()
 
     def DrawSelf(self, screen):
         # debug for now
@@ -232,6 +235,9 @@ class Agent(pygame.sprite.Sprite):
 
         radius = self.cfg['agent_radius']
        # pygame.draw.line(self.screen, colours.RED, self.position, np.add(self.position, np.array([forwardX, -forwardY])*80) ,5)
+
+
+       
 
         if(self.role == "dog"):
             pygame.draw.circle(screen, colours.BLUE, self.position, radius)
@@ -243,6 +249,11 @@ class Agent(pygame.sprite.Sprite):
             pygame.draw.circle(screen, colours.PINK, self.position, radius)
         else:
             pygame.draw.circle(screen, colours.BLACK, self.position, radius)
+
+        largeText = pygame.font.Font('freesansbold.ttf',40)
+        TextSurf, TextRect = self.text_objects(str(self.id), largeText)
+        TextRect.center = (self.position[0], self.position[1])
+        screen.blit(TextSurf, TextRect)
 
        
 
