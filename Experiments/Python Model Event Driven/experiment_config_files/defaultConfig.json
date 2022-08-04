@@ -16,8 +16,8 @@
     "cam_width" : 2.2,
     "cam_height" : 1.5,
 
-    "event_driven" : true,
-    "event_driven_lock_movements" : true,
+    "event_driven" : false,
+    "event_driven_lock_movements" : false,
 
     "debug_dog_forces" : false,
     "debug_sheep_forces" : false,
