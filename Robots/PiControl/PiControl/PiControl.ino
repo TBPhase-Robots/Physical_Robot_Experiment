@@ -13,6 +13,8 @@ Kinematics_c kinematics;
 #define SPEED_SCALE (255.0 / 1.5)
 #define MAX_SPEED 0.25
 
+#define TURNING_MULTIPLIER 1.5
+
 //  Defines motor pins
 #define L_PWM_PIN 10
 #define L_DIR_PIN 16
@@ -233,13 +235,13 @@ void loop()
       if (error > 0){
         // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
         // leftVel = baseSpeed - error*turnRate ;
-        leftVel = baseSpeed * cos(error);
+        leftVel = baseSpeed * cos(error * TURNING_MULTIPLIER);
         rightVel = baseSpeed;
       }
       else{
         // you need to turn anticlockwise, need to increase right wheel 
         leftVel = baseSpeed ;
-        rightVel = baseSpeed * cos(error);
+        rightVel = baseSpeed * cos(error * TURNING_MULTIPLIER);
       }
         // rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
       setLeftMotor(leftVel);

@@ -1,5 +1,3 @@
-//  ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888
-
 #include <M5Core2.h>
 
 #include <micro_ros_arduino.h>
@@ -23,7 +21,7 @@
 #include <lifecycle_msgs/msg/state.h>
 #include <lifecycle_msgs/srv/get_state.h>
 
-#include <Wire.h>           // i2c to connect to IR communication board.
+#include <Wire.h>
 
 #include <arduino-timer.h>
 
@@ -31,16 +29,13 @@
 #define RCCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Aborting.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);error_loop();}}
 #define RCSOFTCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){/*char message[128];sprintf(message, "Error on line %d with status %d. Continuing.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);*/}}
 
-#define COLOUR(r, g, b) {((r << 24) & 0xFF000000) | ((g << 16) & 0x00FF0000) | ((b << 8) & 0x0000FF00)}
-
 #define ROBOT_I2C_ADDR  8
 
 //  Stack screen width + height
 #define WIDTH 320
 #define HEIGHT 240
 
-#define MAX_HANDLES 10
-
+//  Identifiers for different types of packet for communication with the 3Pi
 #define POSE_PACKET 0
 #define FORCE_PACKET 1
 #define UNCERTAINTY_PACKET 2
@@ -62,38 +57,46 @@ typedef struct i2c_status {
 i2c_status_t i2c_status_tx;
 i2c_status_t i2c_status_rx;
 
-
+//  Data for sending heartbeat messages
 rcl_publisher_t heartbeat_publisher;
 std_msgs__msg__Bool heartbeat_msg;
 
+//  Data for subscribing to vector
 rcl_subscription_t vector_subscriber;
 geometry_msgs__msg__Vector3 vector_msg;
 
+//  Data for subscribing to pose messages from the camera
 rcl_subscription_t camera_pose_subscriber;
 geometry_msgs__msg__Pose camera_pose_msg;
 
+//  Data for subscribing to uncertainty messages
 rcl_subscription_t uncertainty_subscriber;
 geometry_msgs__msg__Vector3 uncertainty_msg;
 
+//  Data for publishing pose messages
 rcl_publisher_t pose_publisher;
 geometry_msgs__msg__Pose pose_msg;
 
+//  Data for subscribing to marker messages
 rcl_subscription_t marker_subscriber;
 std_msgs__msg__Int64 marker_msg;
 
+//  Data for subscribing to colour messages
 rcl_subscription_t colour_subscriber;
 std_msgs__msg__ColorRGBA colour_msg;
 
+//  Colour for the screen background
 u_int32_t colour = WHITE;
 
-// rcl_client_t registration_client;
-// lifecycle_msgs__srv__GetState_Request registration_req;
-// lifecycle_msgs__srv__GetState_Response registration_res;
+//  Data for publishing registration messages
 rcl_publisher_t register_publisher;
 std_msgs__msg__Int32 register_msg;
+
+//  Data for subscribing to id messages
 rcl_subscription_t id_subscription;
 std_msgs__msg__Int32 id_msg;
 
+//  Data for ROS
 rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t setup_node;
