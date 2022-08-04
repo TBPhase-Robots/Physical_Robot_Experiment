@@ -109,6 +109,7 @@ class Kinematics_c {
       count_wheel_right_temp = count_e1;
 
       // correct abnormalities
+      // no, WRONG abnormalities
 
       if (count_wheel_right_temp == count_wheel_left_temp + 1.0 || count_wheel_right_temp == count_wheel_left_temp + 2.0) count_wheel_right_temp = count_wheel_left_temp;
       else if (count_wheel_left_temp == count_wheel_right_temp + 1.0 || count_wheel_left_temp == count_wheel_right_temp + 2.0) count_wheel_left_temp = count_wheel_right_temp;
@@ -121,10 +122,9 @@ class Kinematics_c {
       count_difference_left *= -1;
       count_difference_right *= -1;
       // save new rotation values
-      if(recordKinematics){
-        count_wheel_right = count_wheel_right_temp;
-        count_wheel_left = count_wheel_left_temp;
-      }
+      count_wheel_right = count_wheel_right_temp;
+      count_wheel_left = count_wheel_left_temp;
+
       count_difference_left_cum_mean += count_wheel_left;
       count_difference_left_cum_mean /= n;
 
@@ -177,15 +177,13 @@ class Kinematics_c {
        * X(t+1) = X(t) + Xdelta
        * Y(t+1) = Y(t) + Ydelta
        */
-       if(recordKinematics){
-         x_global += Xdelta;
-         y_global += Ydelta;
-       }
+      x_global += Xdelta;
+      y_global += Ydelta;
 
-       displacement = sqrt(x_global*x_global + y_global*y_global); 
-       
-       x_global_debug += Xdelta;
-       y_global_debug += Ydelta;
+      displacement = sqrt(x_global*x_global + y_global*y_global); 
+      
+      x_global_debug += Xdelta;
+      y_global_debug += Ydelta;
        
 //       Serial.println((String) "displacement is  " + displacement);
 //       Serial.println((String) "wheelForwardAmt is  " + wheelForwardAmt);

@@ -11,7 +11,9 @@ Kinematics_c kinematics;
 #define REV HIGH
 
 #define SPEED_SCALE (255.0 / 1.5)
-#define MAX_SPEED 0.4
+#define MAX_SPEED 0.25
+
+#define TURNING_MULTIPLIER 1.5
 
 //  Defines motor pins
 #define L_PWM_PIN 10
@@ -201,39 +203,61 @@ void loop()
     }
   }
 
-  // adding here: checking whether the error is greater than pi/2 to see if they should reverse
-  
-  // error goes negative when you want to turn clockwise 
-  if (abs(error) > 0.1)
+  return angle;
+}
+
+void loop()
+{
+
+  float theta = kinematics.currentRotationCutoff; 
+  float error = goal - theta;
+
+  theta = between_pi(theta);
+  error = between_pi(error);
+
+  if (force_x * force_x + force_y * force_y > 0.001)
   {
-  if (error<0){
-    // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
-    leftVel = baseSpeed - error*turnRate ;
-    rightVel = baseSpeed ;}
-  else{
-    // you need to turn anticlockwise, need to increase right wheel 
-    leftVel = baseSpeed ;
-    rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
-  setLeftMotor(leftVel);
-  setRightMotor(rightVel);
-  }
-  else
-  {
-    set_z_rotation(0);
-    if (global_x * global_x + global_y * global_y > 0.001)
-    {
-      float speed = sqrt(global_x * global_x + global_y * global_y);
-      if (speed > MAX_SPEED) {
-        go_forward(baseSpeed);
-      }
-      else {
-        speed *= SPEED_SCALE;
-        if (speed < 20.0) {
-          speed = 20.0;
-        }
-        go_forward(speed);
-      }
+    float speed = sqrt(force_x * force_x + force_y * force_y);
+    if (speed > MAX_SPEED) {
+      speed = MAX_SPEED;
     }
+    speed *= SPEED_SCALE;
+    if (speed < 20.0) {
+      speed = 20.0;
+    }
+    if (abs(error) > 0.2)
+    {
+      float baseSpeed = speed;
+      // float turnRate = 40; // larger value = smaller turning circle
+
+      float scaled_error = error * TURNING_MULTIPLIER;
+      if (scaled_error > PI) {
+        scaled_error = PI;
+      }
+      if (scaled_error < -PI) {
+        scaled_error = -PI;
+      }
+
+      if (error > 0){
+        // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
+        // leftVel = baseSpeed - error*turnRate ;
+        leftVel = baseSpeed * cos(scaled_error);
+        rightVel = baseSpeed;
+      }
+      else{
+        // you need to turn anticlockwise, need to increase right wheel 
+        leftVel = baseSpeed ;
+        rightVel = baseSpeed * cos(scaled_error);
+      }
+        // rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
+      setLeftMotor(leftVel);
+      setRightMotor(rightVel);
+    }
+    else {
+      go_forward(speed);
+    }
+  } else {
+    go_forward(0);
   }
 
   Serial.println((String) "Error: " + error);
