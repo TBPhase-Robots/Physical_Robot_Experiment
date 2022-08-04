@@ -19,17 +19,13 @@ Kinematics_c kinematics;
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-#define POSE_PACKET 0
-#define FORCE_PACKET 1
-#define UNCERTAINTY_PACKET 2
-
-float force_x = 0;
-float force_y = 0;
+float global_x = 0;
+float global_y = 10;
 float goal = 0;
-float position_uncertainty = 0.3;
-float rotation_uncertainty = 0.5;
 float leftVel = 30;
 float rightVel = 30;
+float baseSpeed = 30 ;
+float turnRate = 40; // larger value = smaller turning circle
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -43,7 +39,6 @@ typedef struct i2c_status
   float y;       // 4 bytes
   float theta;   // 4 bytes
   int8_t status; // 1 byte
-  int8_t packet_type; // 1 byte
 } i2c_status_t;
 #pragma pack()
 
@@ -85,13 +80,15 @@ void setRightMotor(int velocity)
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
+// Not currently used
 void i2c_sendStatus()
 {
 
   // Populate our current status
-  i2c_status_tx.x = kinematics.x_global;
-  i2c_status_tx.y = kinematics.y_global;
-  i2c_status_tx.theta = kinematics.currentRotationCutoff;
+  i2c_status_tx.x = 123.456;
+  i2c_status_tx.y = 789.1011;
+  i2c_status_tx.theta = 12.13;
+  i2c_status_tx.status--; // debugging
 
   // Send up
   Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
@@ -110,25 +107,34 @@ void i2c_recvStatus(int len)
   // setLeftMotor(i2c_status_rx.x);
   // setRightMotor(i2c_status_rx.y);
 
-  if (i2c_status_rx.packet_type == FORCE_PACKET) {
-    force_x = i2c_status_rx.x;
-    force_y = i2c_status_rx.y;
+  global_x = i2c_status_rx.x;
+  global_y = i2c_status_rx.y;
+  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2; // THIS IS ONLY COMMENTED OUT FOR TESTING PURPOSES WITHOUT THE CAMERA
 
-    float angle = atan2(force_y, force_x);
-    Serial.println((String) "Angle" + angle);
+  float angle = atan2(global_y, global_x);
 
-    goal = angle;
-    Serial.println((String) "goal " + goal);
+  Serial.println((String) "Angle" + angle);
+
+  goal = angle;
+  Serial.println((String) "goal " + goal);
+
+  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
+  float error = goal - theta;
+
+  if (abs(error)>PI/2)
+  {
+    float baseSpeed = -30 ;
+    float turnRate = -40; // larger value = smaller turning circle
+    if(error>0)
+    {
+      goal -= PI;
+    }
+    else
+    {
+      goal += PI;
+    }
   }
-  else if (i2c_status_rx.packet_type == POSE_PACKET) {
-    kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
-    kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
-    kinematics.currentRotationCutoff = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotationCutoff * rotation_uncertainty;
-  }
-  else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
-    position_uncertainty = i2c_status_rx.x;
-    rotation_uncertainty = i2c_status_rx.theta;
-  }
+  
 }
 
 void setup()
@@ -165,22 +171,8 @@ void setup()
 
 void set_z_rotation(float vel)
 {
-  if (vel == 0) {
-    setLeftMotor(0);
-    setRightMotor(0);
-  }
-  else if (vel * 30 < 22 && vel > 0) {
-    setLeftMotor(-22.0);
-    setRightMotor(22.0);
-  }
-  else if (vel * 30 > -22 && vel < 0) {
-    setLeftMotor(22.0);
-    setRightMotor(-22.0);
-  }
-  else {
-    setLeftMotor(-vel * 30);
-    setRightMotor(vel * 30);
-  }
+  setLeftMotor(-vel * 30);
+  setRightMotor(vel * 30);
 }
 
 void go_forward(float vel)
@@ -191,47 +183,29 @@ void go_forward(float vel)
   rightVel = vel ;
 }
 
-float between_pi(float angle) {
-  while (abs(angle) > PI)
-  {
-    if (angle > 0)
-    {
-      angle -= 2 * PI;
-    }
-    else
-    {
-      angle += 2 * PI;
-    }
-  }
-
-  return angle;
-}
-
 void loop()
 {
 
-  float theta = kinematics.currentRotationCutoff; 
+  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
   float error = goal - theta;
 
-  theta = between_pi(theta);
-  error = between_pi(error);
-
-  if (abs(error) > 0.2)
+  while (abs(error) > PI)
   {
-    float limit = 0.75;
-    /*if (abs(error) < limit) // commented out as not required for differential drive system as never approaches 0 speed
+    if (error > 0)
     {
-      if (error > 0)
-      {
-        error = limit;
-      }
-      else
-      {
-        error = -limit;
-      }
-    }*/
-  float baseSpeed = 30 ;
-  float turnRate = 40; // larger value = smaller turning circle
+      error -= 2 * PI;
+    }
+    else
+    {
+      error += 2 * PI;
+    }
+  }
+
+  // adding here: checking whether the error is greater than pi/2 to see if they should reverse
+  
+  // error goes negative when you want to turn clockwise 
+  if (abs(error) > 0.1)
+  {
   if (error<0){
     // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
     leftVel = baseSpeed - error*turnRate ;
@@ -245,11 +219,12 @@ void loop()
   }
   else
   {
-    if (force_x * force_x + force_y * force_y > 0.001)
+    set_z_rotation(0);
+    if (global_x * global_x + global_y * global_y > 0.001)
     {
-      float speed = sqrt(force_x * force_x + force_y * force_y);
+      float speed = sqrt(global_x * global_x + global_y * global_y);
       if (speed > MAX_SPEED) {
-        go_forward(MAX_SPEED * SPEED_SCALE);
+        go_forward(baseSpeed);
       }
       else {
         speed *= SPEED_SCALE;
@@ -258,19 +233,17 @@ void loop()
         }
         go_forward(speed);
       }
-    } else {
-      go_forward(0);
     }
   }
 
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "x: " + force_x);
-  Serial.println((String) "y:" + force_y);
+  Serial.println((String) "left vel: " + leftVel);
+  Serial.println((String) "right vel:" + rightVel);
 
   kinematics.updateLoop();
-  // delay(1);
+  delay(100);
 }
 
 void printRXStatus()
