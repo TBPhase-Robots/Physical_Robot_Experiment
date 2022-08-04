@@ -57,6 +57,9 @@ class Agent(pygame.sprite.Sprite):
         self.hasNewRotation= False
         self.simulationNode = simulationNode
 
+        # pathfinding
+        self.path = []
+
         # width ratio = worldWidth / camera width
         self.widthRatio = self.worldWidth / self.cameraWidth
 
@@ -79,7 +82,7 @@ class Agent(pygame.sprite.Sprite):
         self.grazing_direction = np.array([1, 0])
 
         # ROS
-        self.topicPoseName = f'/robot{id}/pose'
+        self.topicPoseName = f'/robot{id}/poses'
         self.listener = self.simulationNode.CreatePoseListener(self.topicPoseName, self.AgentCallback) 
 
         self.topicName = f'/robot{id}/vectors'
@@ -98,6 +101,10 @@ class Agent(pygame.sprite.Sprite):
         
 
     #end function
+
+    def SetPath(self, path):
+        self.path = path
+        print("set path to ", self.path)
     
     def SetAgentConfig(self, newCfg):
         self.cfg = newCfg
@@ -222,18 +229,20 @@ class Agent(pygame.sprite.Sprite):
         # calculate forward vector
         forwardX = math.sin(self.rotation)
         forwardY = math.cos(self.rotation)
+
+        radius = self.cfg['agent_radius']
        # pygame.draw.line(self.screen, colours.RED, self.position, np.add(self.position, np.array([forwardX, -forwardY])*80) ,5)
 
         if(self.role == "dog"):
-            pygame.draw.circle(screen, colours.BLUE, self.position, 30)
+            pygame.draw.circle(screen, colours.BLUE, self.position, radius)
         elif(self.role == "sheep"):
-            pygame.draw.circle(screen, colours.WHITE, self.position, 30)
+            pygame.draw.circle(screen, colours.WHITE, self.position, radius)
         elif(self.role == "standby"):
-            pygame.draw.circle(screen, colours.GREEN, self.position, 30)
+            pygame.draw.circle(screen, colours.GREEN, self.position, radius)
         elif(self.role == "pig"):
-            pygame.draw.circle(screen, colours.PINK, self.position, 30)
+            pygame.draw.circle(screen, colours.PINK, self.position, radius)
         else:
-            pygame.draw.circle(screen, colours.BLACK, self.position, 30)
+            pygame.draw.circle(screen, colours.BLACK, self.position, radius)
 
        
 
@@ -252,21 +261,26 @@ class Agent(pygame.sprite.Sprite):
       #  print("publishing Vforce ", vForce, " to ", self.topicName)
 
         self.vectorPublisher.publish(vForce)
-        pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
-        print("sending rotation ", vForce.z, " to robot ", self.id)
+        pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*70 ), 2)
+      #  print("sending rotation ", vForce.z, " to robot ", self.id)
+
+    def HaltAgentOverride(self, screen):
+        self.PublishForceToTopic(np.array([0.0,0.0]), screen)
+        self.halted = True
+
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
     # a flag remains signalling the robot has been halted until a new command is sent
     def HaltAgent(self, screen):
         if(not self.halted):
-            print("agent ", self.id, " has been halted")
+        #    print("agent ", self.id, " has been halted")
             self.PublishForceToTopic(np.array([0.0,0.0]), screen)
             self.halted = True
 
     # called by the function MoveToPointDecision() in runSimulation.py
     # linearly moves agent (with obstacle avoidance) to point
-    # MoveToPointDecision() stops calling this when in a target range
+    # MoveToPointDecision() and PathDecision() stops calling this when in a target range
     # Publishes resultant force to robot topic
     def MoveToPoint(self, point_x, point_y, screen, agents, cfg):
         # this is a valid move command
@@ -294,19 +308,48 @@ class Agent(pygame.sprite.Sprite):
 
         # calculate repulsion force from all other agents
         F_A = np.zeros(2)
+
+        objectAvoidance = False
+        i = 0
         for agent in agents:
             if (agent.id != self.id):
                 if (np.linalg.norm((self.position) - (agent.position)) < moveRepelDistance):
+
                     F_A = cfg['agent_repulsion_from_agents'] * np.add(F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
 
-        repulsionForce = F_A + (0.75 * np.array([F_A[1], -F_A[0]]))
-        moveForce = force + repulsionForce
-        #self.DrawSelf(screen)
+        if(objectAvoidance):
+            F_A = (F_A / np.linalg.norm(F_A)) * i
+            repulsionForce = F_A #+ (0.75 * np.array([F_A[1], -F_A[0]]))
+            moveForce = force + repulsionForce
+
+            if(np.linalg.norm(moveForce) < 0.1):
+                moveForce = moveForce + force*0.1
+
+        else:
+            moveForce = force
+
         # if the simulation is running using real world robots, don't move the agent
         if(not cfg['event_driven_lock_movements']):
-            self.position = np.add(self.position, moveForce*5)
+            self.position = np.add(self.position, moveForce * 5)
+        
+        
+        
         # publish force to robot topic
         self.PublishForceToTopic(moveForce, screen) 
+
+        if(not cfg['event_driven_lock_movements']):
+            self.position = np.add(self.position, moveForce)
+
+        # do collision detection if not running with real robots
+        #collision_check = True
+        #if(not cfg['event_driven_lock_movements']):
+        #    while (collision_check):
+        #        collision_check = False
+        #        for agent in agents:
+        #            if (agent.id != self.id):
+        #                if (np.linalg.norm(self.position - agent.position) <= cfg['agent_radius'] * 2):
+        #                    self.position = np.add(self.position, (self.position - agent.position)/3)
+        #                    collision_check = True
 
         if(cfg['realistic_agent_movement_markers']):
             pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
@@ -316,7 +359,7 @@ class Agent(pygame.sprite.Sprite):
 
     # Function describes all normal dog behaviour for the agent
     # Called by runSimulation.py when in experiment state
-    def SimulationUpdate_Dog(self, screen, flock, pack, cfg):
+    def SimulationUpdate_Dog(self, screen, flock, pack, agents ,cfg):
         self.halted = False
         target = cfg['target_position']
         if (len(self.sub_flock) > 0):
@@ -436,11 +479,12 @@ class Agent(pygame.sprite.Sprite):
         if(not cfg['event_driven_lock_movements']):
             while (collision_check):
                 collision_check = False
-                for dog in pack:
-                    if (dog.id != self.id):
-                        if (np.linalg.norm(self.position - dog.position) <= 8):
-                            self.position = np.add(self.position, self.position - dog.position)
+                for agent in agents:
+                    if (agent.id != self.id):
+                        if (np.linalg.norm(self.position - agent.position) <= cfg['agent_radius']):
+                            self.position = np.add(self.position, (self.position - agent.position)/2)
                             collision_check = True
+                
         
 
         # Calculate empowerment values, taking into account sheep of a range of up to 50 units from dog agent
@@ -584,7 +628,7 @@ class Agent(pygame.sprite.Sprite):
 
     # Function describes all normal sheep behaviour for the agent
     # Called by runSimulation.py when in experiment state
-    def SimulationUpdate_Sheep(self, screen, flock, pack, cfg):
+    def SimulationUpdate_Sheep(self, screen, flock, pack, agents, cfg):
         self.halted = False
         # calculate forward vector
         forwardX = math.sin(self.rotation)
@@ -612,6 +656,8 @@ class Agent(pygame.sprite.Sprite):
 
         # This section defines all of the grazing behaviour of an agent when it is a sheep
         if (self.grazing):
+            self.halted = False
+
             if (len(flock) > 1):
                 F_S = self.calc_F_S_Sheep(flock, cfg)
             else:
@@ -728,8 +774,8 @@ class Agent(pygame.sprite.Sprite):
                     self.rotation += 0.2
                     self.position = np.add(self.position, [2*forwardX, -2*forwardY])
                 else:
-                    if(np.linalg.norm(F) > 10 and not outOfBounds):
-                        F /= (np.linalg.norm(F) /10)
+                    if(np.linalg.norm(F) > 15 and not outOfBounds):
+                        F /= (np.linalg.norm(F) /2)
                     
                     self.position = np.add(self.position, np.array(F))
 
@@ -745,10 +791,10 @@ class Agent(pygame.sprite.Sprite):
         if(not cfg['event_driven_lock_movements']):
             while (collision_check):
                 collision_check = False
-                for sheep in flock:
-                    if (sheep.id != self.id):
-                        if (np.linalg.norm(self.position - sheep.position) <= 8):
-                            self.position = np.add(self.position, self.position - sheep.position)
+                for agent in agents:
+                    if (agent.id != self.id):
+                        if (np.linalg.norm(self.position - agent.position) <= cfg['agent_radius'] *2):
+                            self.position = np.add(self.position, (self.position - agent.position)/2)
                             collision_check = True
 
 
