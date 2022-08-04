@@ -21,13 +21,17 @@ Kinematics_c kinematics;
 #define R_PWM_PIN 9
 #define R_DIR_PIN 15
 
-float global_x = 0;
-float global_y = 10;
+#define POSE_PACKET 0
+#define FORCE_PACKET 1
+#define UNCERTAINTY_PACKET 2
+
+float force_x = 0;
+float force_y = 0;
 float goal = 0;
+float position_uncertainty = 0.3;
+float rotation_uncertainty = 0.5;
 float leftVel = 30;
 float rightVel = 30;
-float baseSpeed = 30 ;
-float turnRate = 40; // larger value = smaller turning circle
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -41,6 +45,7 @@ typedef struct i2c_status
   float y;       // 4 bytes
   float theta;   // 4 bytes
   int8_t status; // 1 byte
+  int8_t packet_type; // 1 byte
 } i2c_status_t;
 #pragma pack()
 
@@ -82,15 +87,13 @@ void setRightMotor(int velocity)
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
-// Not currently used
 void i2c_sendStatus()
 {
 
   // Populate our current status
-  i2c_status_tx.x = 123.456;
-  i2c_status_tx.y = 789.1011;
-  i2c_status_tx.theta = 12.13;
-  i2c_status_tx.status--; // debugging
+  i2c_status_tx.x = kinematics.x_global;
+  i2c_status_tx.y = kinematics.y_global;
+  i2c_status_tx.theta = kinematics.currentRotationCutoff;
 
   // Send up
   Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
@@ -109,34 +112,25 @@ void i2c_recvStatus(int len)
   // setLeftMotor(i2c_status_rx.x);
   // setRightMotor(i2c_status_rx.y);
 
-  global_x = i2c_status_rx.x;
-  global_y = i2c_status_rx.y;
-  kinematics.currentRotation = -i2c_status_rx.theta - PI / 2; // THIS IS ONLY COMMENTED OUT FOR TESTING PURPOSES WITHOUT THE CAMERA
+  if (i2c_status_rx.packet_type == FORCE_PACKET) {
+    force_x = i2c_status_rx.x;
+    force_y = i2c_status_rx.y;
 
-  float angle = atan2(global_y, global_x);
+    float angle = atan2(force_y, force_x);
+    Serial.println((String) "Angle" + angle);
 
-  Serial.println((String) "Angle" + angle);
-
-  goal = angle;
-  Serial.println((String) "goal " + goal);
-
-  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
-  float error = goal - theta;
-
-  if (abs(error)>PI/2)
-  {
-    float baseSpeed = -30 ;
-    float turnRate = -40; // larger value = smaller turning circle
-    if(error>0)
-    {
-      goal -= PI;
-    }
-    else
-    {
-      goal += PI;
-    }
+    goal = angle;
+    Serial.println((String) "goal " + goal);
   }
-  
+  else if (i2c_status_rx.packet_type == POSE_PACKET) {
+    kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
+    kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
+    kinematics.currentRotationCutoff = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotationCutoff * rotation_uncertainty;
+  }
+  else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
+    position_uncertainty = i2c_status_rx.x;
+    rotation_uncertainty = i2c_status_rx.theta;
+  }
 }
 
 void setup()
@@ -173,8 +167,22 @@ void setup()
 
 void set_z_rotation(float vel)
 {
-  setLeftMotor(-vel * 30);
-  setRightMotor(vel * 30);
+  if (vel == 0) {
+    setLeftMotor(0);
+    setRightMotor(0);
+  }
+  else if (vel * 30 < 22 && vel > 0) {
+    setLeftMotor(-22.0);
+    setRightMotor(22.0);
+  }
+  else if (vel * 30 > -22 && vel < 0) {
+    setLeftMotor(22.0);
+    setRightMotor(-22.0);
+  }
+  else {
+    setLeftMotor(-vel * 30);
+    setRightMotor(vel * 30);
+  }
 }
 
 void go_forward(float vel)
@@ -185,21 +193,16 @@ void go_forward(float vel)
   rightVel = vel ;
 }
 
-void loop()
-{
-
-  float theta = -kinematics.currentRotation; // make minus as this gives angle in clockwise rotation (we're using anticlockwise)
-  float error = goal - theta;
-
-  while (abs(error) > PI)
+float between_pi(float angle) {
+  while (abs(angle) > PI)
   {
-    if (error > 0)
+    if (angle > 0)
     {
-      error -= 2 * PI;
+      angle -= 2 * PI;
     }
     else
     {
-      error += 2 * PI;
+      angle += 2 * PI;
     }
   }
 
@@ -276,11 +279,11 @@ void loop()
   Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "left vel: " + leftVel);
-  Serial.println((String) "right vel:" + rightVel);
+  Serial.println((String) "x: " + force_x);
+  Serial.println((String) "y:" + force_y);
 
   kinematics.updateLoop();
-  delay(100);
+  // delay(1);
 }
 
 void printRXStatus()
