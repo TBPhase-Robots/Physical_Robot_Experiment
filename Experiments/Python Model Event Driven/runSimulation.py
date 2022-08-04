@@ -185,7 +185,7 @@ def MoveToPointDecision(agent: Agent, movePos, cfg):
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 130):
+    if(np.linalg.norm(movePos - agentPos) > 35):
         print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
