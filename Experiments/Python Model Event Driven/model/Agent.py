@@ -82,7 +82,7 @@ class Agent(pygame.sprite.Sprite):
         self.grazing_direction = np.array([1, 0])
 
         # ROS
-        self.topicPoseName = f'/robot{id}/pose'
+        self.topicPoseName = f'/robot{id}/poses'
         self.listener = self.simulationNode.CreatePoseListener(self.topicPoseName, self.AgentCallback) 
 
         self.topicName = f'/robot{id}/vectors'
@@ -261,10 +261,13 @@ class Agent(pygame.sprite.Sprite):
       #  print("publishing Vforce ", vForce, " to ", self.topicName)
 
         self.vectorPublisher.publish(vForce)
-        pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*40 ), 2)
+        pygame.draw.line(screen, colours.GREEN, self.position, np.add(self.position, np.array([vForce.x, vForce.y])*70 ), 2)
       #  print("sending rotation ", vForce.z, " to robot ", self.id)
 
-      
+    def HaltAgentOverride(self, screen):
+        self.PublishForceToTopic(np.array([0.0,0.0]), screen)
+        self.halted = True
+
 
     # halts an agent's movement in the real world 
     # communicated via sending a [0,0] vector
@@ -312,32 +315,8 @@ class Agent(pygame.sprite.Sprite):
             if (agent.id != self.id):
                 if (np.linalg.norm((self.position) - (agent.position)) < moveRepelDistance):
 
-                    # get counter clockwise orthogonal vector between self and agent
-                   # distanceVector = np.array([self.position[0] - agent.position[1], self.position[1] - agent.position[1]])
-
-                    # rotation matrix
-                   # theta = np.radians(90)
-                   # c, s = np.cos(theta), np.sin(theta)
-                   # R = np.array(((c, -s), (s, c)))
-                   # print(R)
-                   # orthogonalVector = distanceVector @ R
-                   # print("orthogonal vector: ", orthogonalVector)
-
-                    # get repulsion vector (negative force + force * ((moveRepelDistance - (np.linalg.norm((self.position) - (agent.position)))  / moveRepelDistance)
-                   # repulsionVector = -force + force* ((moveRepelDistance - (np.linalg.norm(self.position - agent.position))) /moveRepelDistance)
-                    # sum vectors
-
-                   # orthogonalVector = orthogonalVector / np.linalg.norm(orthogonalVector)
-
-                   # F_A += (orthogonalVector * 5) + repulsionVector
-
-
-                    objectAvoidance = True
-                   # i += 1
-
-
-
                     F_A = cfg['agent_repulsion_from_agents'] * np.add(F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
+
         if(objectAvoidance):
             F_A = (F_A / np.linalg.norm(F_A)) * i
             repulsionForce = F_A #+ (0.75 * np.array([F_A[1], -F_A[0]]))
@@ -347,7 +326,7 @@ class Agent(pygame.sprite.Sprite):
                 moveForce = moveForce + force*0.1
 
         else:
-            moveForce = force 
+            moveForce = force
 
         # if the simulation is running using real world robots, don't move the agent
         if(not cfg['event_driven_lock_movements']):

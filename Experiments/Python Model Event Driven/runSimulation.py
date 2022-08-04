@@ -220,7 +220,7 @@ def MoveToPointDecision(agent: Agent, movePos, cfg):
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
-    if(np.linalg.norm(movePos - agentPos) > 75):
+    if(np.linalg.norm(movePos - agentPos) > 85):
        # print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
     else:
@@ -231,16 +231,19 @@ def FollowPathDecision(agent: Agent, path, cfg):
 
     pathFindingTileRadius= cfg['world_width'] / cfg['path_finding_width']
 
-
+    if(len(path) == 0):
+        agent.HaltAgent(screen=screen)
+        return 1
 
     if(len(path) > 0):
         agentPos = np.array([agent.position[0], agent.position[1]])
         targetPos = path[0]
 
         if(len(path) == 1):
-            pathFindingTileRadius = 5
+            if(not cfg['event_driven']):
+                pathFindingTileRadius = 8
         
-        if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius/2):
+        if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius):
             agent.MoveToPoint(point_x = targetPos[0], point_y = targetPos[1], screen = screen, agents = agents, cfg = cfg)
         else:
             path = path[1:]
@@ -248,6 +251,9 @@ def FollowPathDecision(agent: Agent, path, cfg):
             
     else:
         agent.HaltAgent(screen=screen)
+        return 1
+
+    return 0
     
 
 def StandbySetupUpdateTimestep(agents, cfg):
@@ -408,7 +414,8 @@ def main(show_empowerment=False):
     
     
     
-    
+    pathfindingAgentId = 0
+
     while (not end_game):
         for event in pygame.event.get():
             if event.type==QUIT:
@@ -416,6 +423,8 @@ def main(show_empowerment=False):
                 sys.exit()
 
         DrawWorld(cfg=cfg)
+
+        
 
         
         
@@ -477,16 +486,28 @@ def main(show_empowerment=False):
                     agentId = agent.id
                     fail = False
                     for robot in flat_list:
-                        if(agent_id == robot.id):
+                        if(agentId == robot.id):
                             fail = True
                     if(not fail):
                         stationaryAgents.append(agent)
 
 
 
-
+                # endpoints in screen coordinates
                 endpoints = []
+                # endpoints in pathfinding coordinates
+                endpointTiles = []
+                # for each agent in robotsInTheWay, calculate a nearby pathfinding tile not occupied
+
                 pathfindingManager.GenerateWorldMatrix(stationaryAgents=stationaryAgents, endPoints=endpoints)
+                for agent in stationaryAgents:
+                    print("finding available position for stationary agent ", agent.id)
+                    # send currently taken endpoint tiles, 
+                    pathfindingManager
+                    # return endpoints and endpointTile
+
+
+                
                 # for each agent in flat list, give them the nearest non occupied space to follow
 
 
@@ -565,7 +586,7 @@ def main(show_empowerment=False):
 
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"
-                            
+                pathfindingAgentId = 0
              
 
             
@@ -573,8 +594,14 @@ def main(show_empowerment=False):
             if(state == "sheep_setup_loop"):
 
                 # get the list of positions for sheep to move to
-                for sheep in flock:
-                    FollowPathDecision(agent= sheep, path=sheep.path, cfg=cfg)
+
+                if(cfg['sequential_pathfinding']):
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, flock, agents, cfg, FollowPathDecision, cfg['initial_sheep_positions'])
+                
+                else:
+                    #simultaneous
+                    for sheep in flock:
+                        FollowPathDecision(agent= sheep, path=sheep.path, cfg=cfg)
 
             
             if(state == "dog_setup_start"):
@@ -590,11 +617,15 @@ def main(show_empowerment=False):
                     i += 1
 
                 state = "dog_setup_loop"
+                pathfindingAgentId = 0
 
             if(state == "dog_setup_loop"):
-                # get the list of positions for starting dogs to move to
-                for dog in pack:
-                    FollowPathDecision(agent= dog, path=dog.path, cfg=cfg)
+
+                if(cfg['sequential_pathfinding']):
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, pack, agents, cfg, FollowPathDecision, cfg['initial_dog_positions'])
+                else:
+                    for dog in pack:
+                        FollowPathDecision(agent= dog, path=dog.path, cfg=cfg)
 
             if(state == "pig_setup_start"):
                 i = 0
@@ -608,11 +639,14 @@ def main(show_empowerment=False):
                     i += 1
 
                 state = "pig_setup_loop"
+                pathfindingAgentId = 0
             
             if(state == "pig_setup_loop"):
-                # get the list of positions for starting pigs to move to
-                for pig in pigs:
-                    FollowPathDecision(agent= pig, path=pig.path, cfg=cfg)
+                if(cfg['sequential_pathfinding']):
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, pigs, agents, cfg, FollowPathDecision, cfg['pigsty_positions'])
+                else:
+                    for pig in pigs:
+                        FollowPathDecision(agent= pig, path=pig.path, cfg=cfg)
 
 
             if(state == "standby_setup_start"):
@@ -626,6 +660,7 @@ def main(show_empowerment=False):
                     i += 1
 
                 state = "standby_setup_loop"
+                pathfindingAgentId = 0
 
 
             if(state == "standby_setup_loop"):

@@ -13,8 +13,8 @@
 
     "show_empowerment" : true,
 
-    "cam_width" : 2.0,
-    "cam_height" : 1.0,
+    "cam_width" : 2.2,
+    "cam_height" : 1.5,
 
     "event_driven" : true,
     "event_driven_lock_movements" : true,
@@ -28,17 +28,17 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500], [300, 500]],
-    "initial_dog_positions" : [[440, 350], [340, 350], [240, 350]],
-    "standby_positions" : [[150, 150], [350, 150], [550, 150], [750, 150], [950, 150]],
+    "initial_sheep_positions" : [[400, 500], [300, 500], [240, 350]],
+    "initial_dog_positions" : [[440, 350], [340, 350]],
+    "standby_positions" : [[150, 100], [350, 100], [550, 100], [750, 100], [950, 100], [150, 175], [350, 175], [550, 175], [750, 175], [950, 175]],
     "pigsty_positions" : [[50, 50], [50, 200], [50, 350], [50, 500], [75, 650]], 
 
     "target_position" : [800, 610],
 
     "agent_repulsion_from_agents" : 0.5,
 
-    "sheep_resulsion_from_dogs" : 500,
-    "sheep_repulsion_from_sheep" : 100,
+    "sheep_resulsion_from_dogs" : 5000,
+    "sheep_repulsion_from_sheep" : 2000,
     "sheep_attraction_to_sheep" : 1,
 
     "lambda_D" : 0.1,   
@@ -46,17 +46,19 @@
     "lambda_G" : -1,
 
     "no_of_sheep_in_social_group" : 3,
-    "sheep_vision_range" : 90,
+    "sheep_vision_range" : 120,
     "grazing_movement_chance" : 0.3,
 
     "dog_forces_with_flock" : 1,
-    "dog_repulsion_from_dogs" : 0.2,
-    "dog_repulsion_from_sheep" : 0.1,
+    "dog_repulsion_from_dogs" : 1,
+    "dog_repulsion_from_sheep" : 1,
     "dog_attraction_to_steering_point" : 4,
     "dog_orbital_around_flock" : 8,
     "move_to_point_repel_distance" : 50,
 
-    "agent_radius" : 30,
+
+    "sequential_pathfinding" : true,
+    "agent_radius" : 40,
     
     "ticks_per_choice" : 5,
     "collection_radius" : 60,

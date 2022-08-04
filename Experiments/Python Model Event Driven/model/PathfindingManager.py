@@ -87,6 +87,29 @@ class PathfindingManager():
 
         return robotsInTheWay    
 
+
+    def SequentialPathfindingStep(self, pathfindingAgentId, movingAgents, allAgents, cfg, FollowPathDecision, agentPositions):
+        agents = []
+        currentAgentId = 0
+        for agent in movingAgents:
+            agents.append(agent)
+            if(pathfindingAgentId < len(agents)):
+                stationaryAgents = [allAgents]
+                self.GenerateWorldMatrix(stationaryAgents, agentPositions)
+                currentSheep = agents[pathfindingAgentId]
+                currentAgentId = currentSheep.id
+                finished = FollowPathDecision(agent= currentSheep, path=currentSheep.path, cfg=cfg)
+                if(finished == 1):
+                    print("sheep reached destination")
+                    print(pathfindingAgentId)
+                    pathfindingAgentId = pathfindingAgentId + 1
+
+        for agent in agents:
+            if(not agent.id == currentAgentId):
+                agent.HaltAgentOverride(self.screen)
+        return pathfindingAgentId
+
+
     def GenerateWorldMatrix(self, stationaryAgentsTuple, endPoints):
 
         stationaryAgents = []
@@ -94,11 +117,6 @@ class PathfindingManager():
             for agent in group:
                 stationaryAgents.append(agent)
 
-       
-            
-
-
-        
         np.set_printoptions(threshold=np.inf)
 
         print("generating world")
@@ -115,6 +133,7 @@ class PathfindingManager():
                 curY = y * self.pathFindingGridSquareHeight
 
                 agentsInTile = 0
+                endpoint = 0
 
 
 
@@ -123,43 +142,46 @@ class PathfindingManager():
                     if(agent.position[0] > curX and agent.position[0] < curX+self.pathFindingGridSquareWidth  and agent.position[1] > curY and agent.position[1] < curY + self.pathFindingGridSquareHeight):
                         agentsInTile = 1
 
+                        if(agentsInTile > 0):
+                            worldMatrix[y, x] = -1
+
+                            # get screen pos, add agent radius up, down, left, and right
+                            screenDown =  np.array([agent.position[0], agent.position[1] + agentRadius*1.4])
+                            screenUp = np.array([agent.position[0], agent.position[1] - agentRadius*1.4])
+                            
+                            screenLeft = np.array([agent.position[0] - agentRadius*1.4, agent.position[1]])
+                            screenRight = np.array([agent.position[0] + agentRadius*1.4, agent.position[1]])
+
+                        # diagLength = math.sqrt(diagLength * np.diag)
+
+                            screenUpRight = np.array([agent.position[0] + agentRadius, agent.position[1] - agentRadius])
+
+                            # check if world up, down left and right are in tiles
+                            if(y < self.pathFindingWorld_y -1):
+                                if(self.IsInTile(screenCoordinates = screenDown, tileCoordinates=[y+1, x])):
+                                    worldMatrix[y+1, x] = -1
+
+                            if(y > 0):
+                                if(self.IsInTile(screenCoordinates = screenUp, tileCoordinates=[y-1, x])):
+                                    worldMatrix[y-1, x] = -1
+
+                            if(x < self.pathFindingWorld_x -1):
+                                if(self.IsInTile(screenCoordinates = screenRight, tileCoordinates=[y, x+1])):
+                                    worldMatrix[y, x+1] = -1
+
+                            if(x > 0):
+                                if(self.IsInTile(screenCoordinates = screenLeft, tileCoordinates=[y, x-1])):
+                                    worldMatrix[y, x-1] = -1
+
                 for point in endPoints:
                     if(point[0] > curX and point[0] < curX+self.pathFindingGridSquareWidth  and point[1] > curY and point[1] < curY + self.pathFindingGridSquareHeight):
-                        agentsInTile = 1
+                        endpoint = 1
 
 
-
-                # if so, add 1 to the numpy matrix
-                if(agentsInTile > 0):
+                if(endpoint > 0):
                     worldMatrix[y, x] = -1
+                # if so, add 1 to the numpy matrix
 
-                    # get screen pos, add agent radius up, down, left, and right
-                    screenDown =  np.array([agent.position[0], agent.position[1] + agentRadius*1.4])
-                    screenUp = np.array([agent.position[0], agent.position[1] - agentRadius*1.4])
-                    
-                    screenLeft = np.array([agent.position[0] - agentRadius*1.4, agent.position[1]])
-                    screenRight = np.array([agent.position[0] + agentRadius*1.4, agent.position[1]])
-
-                   # diagLength = math.sqrt(diagLength * np.diag)
-
-                    screenUpRight = np.array([agent.position[0] + agentRadius, agent.position[1] - agentRadius])
-
-                    # check if world up, down left and right are in tiles
-                    if(y < self.pathFindingWorld_y -1):
-                        if(self.IsInTile(screenCoordinates = screenDown, tileCoordinates=[y+1, x])):
-                            worldMatrix[y+1, x] = -1
-
-                    if(y > 0):
-                        if(self.IsInTile(screenCoordinates = screenUp, tileCoordinates=[y-1, x])):
-                            worldMatrix[y-1, x] = -1
-
-                    if(x < self.pathFindingWorld_x -1):
-                        if(self.IsInTile(screenCoordinates = screenRight, tileCoordinates=[y, x+1])):
-                            worldMatrix[y, x+1] = -1
-
-                    if(x > 0):
-                        if(self.IsInTile(screenCoordinates = screenLeft, tileCoordinates=[y, x-1])):
-                            worldMatrix[y, x-1] = -1
 
                     
 
@@ -180,6 +202,8 @@ class PathfindingManager():
 
         return worldMatrix
 
+    #def FindNearestEmptyTile(self, agent, )
+
     def UpdatePositionOnWorldMatrix(self, agent):
         print("UpdatePositionOnWorldMatrix")
 
@@ -199,6 +223,16 @@ class PathfindingManager():
         pathFindingTargetPosX = int(targetPos[0] / self.pathFindingGridSquareWidth)
         pathFindingTargetPosY = int(targetPos[1] / self.pathFindingGridSquareHeight)
 
+        if(pathFindingTargetPosX >= self.pathFindingWidth):
+            pathFindingTargetPosX = self.pathFindingWidth - 1
+        if(pathFindingTargetPosX < 0):
+            pathFindingTargetPosX = 0
+
+        if(pathFindingTargetPosY >= self.pathFindingHeight):
+            pathFindingTargetPosY = self.pathFindingHeight - 1
+        if(pathFindingTargetPosY < 0):
+            pathFindingTargetPosY = 0
+
         print("pathfinding target coordinates ", pathFindingTargetPosX, " ", pathFindingTargetPosY)
         
         lastTileValue = self.worldMatrix[pathFindingPosY, pathFindingPosX]
@@ -214,7 +248,7 @@ class PathfindingManager():
 
         endPos = grid.node(pathFindingTargetPosX, pathFindingTargetPosY)
 
-        finder = DijkstraFinder(diagonal_movement=DiagonalMovement.only_when_no_obstacle)
+        finder = AStarFinder(diagonal_movement=DiagonalMovement.only_when_no_obstacle)
         
         print(startPos)
         print(endPos)
