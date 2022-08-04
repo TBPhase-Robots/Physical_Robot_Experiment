@@ -113,20 +113,12 @@ class Window(Frame):
         print(msg)
 
 
-    def clickSheepSetupLoopButton(self):
 
-        msg = String()
-        msg.data = "sheep_setup_loop"
-
-        
-        self.statePublisher.pub.publish(msg)
-
-        print(msg)
 
     def clickDogSetupLoopButton(self):
 
         msg = String()
-        msg.data = "dog_setup_loop"
+        msg.data = "dog_setup_start"
 
         
         self.statePublisher.pub.publish(msg)
@@ -136,7 +128,7 @@ class Window(Frame):
     def clickPigSetupLoopButton(self):
 
         msg = String()
-        msg.data = "pig_setup_loop"
+        msg.data = "pig_setup_start"
 
         
         self.statePublisher.pub.publish(msg)
@@ -146,7 +138,7 @@ class Window(Frame):
     def standbySetupLoopButton(self):
 
         msg = String()
-        msg.data = "standby_setup_loop"
+        msg.data = "standby_setup_start"
         self.statePublisher.pub.publish(msg)
         print(msg)
 
