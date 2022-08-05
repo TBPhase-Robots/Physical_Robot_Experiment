@@ -34,6 +34,9 @@ from geometry_msgs.msg import Pose, Vector3
 
 class Agent(pygame.sprite.Sprite):
     
+    def delete(self):
+        print("deleted agent", self.id)
+        self.kill()
     
     def __init__(self, position, id, cfg, rotation, poseAgentCallback, role, screen, simulationNode) -> None:
         

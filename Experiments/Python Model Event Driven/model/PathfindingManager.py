@@ -60,7 +60,7 @@ class PathfindingManager():
         tileTopLeft_y = int(self.pathFindingGridSquareHeight * tileCoordinates[0])
 
         if(screenCoordinates[0] > tileTopLeft_x and screenCoordinates[0] < tileTopLeft_x+self.pathFindingGridSquareWidth  and screenCoordinates[1] > tileTopLeft_y and screenCoordinates[1] < tileTopLeft_y + self.pathFindingGridSquareHeight):
-            print("tile occupied by fat agent: " , tileCoordinates)
+            #print("tile occupied by fat agent: " , tileCoordinates)
             return True
         else:
             return False
@@ -119,7 +119,7 @@ class PathfindingManager():
 
         np.set_printoptions(threshold=np.inf)
 
-        print("generating world")
+       # print("generating world")
 
         # generate numpy matrix
         worldMatrix = np.ones((self.pathFindingWorld_y ,self.pathFindingWorld_x ), dtype=float)
@@ -196,7 +196,7 @@ class PathfindingManager():
                     #    worldMatrix[y+1, x] = 1
                     #if(y > 0):
                     #    worldMatrix[y-1, x] = 1
-        print(worldMatrix)
+        #print(worldMatrix)
 
         self.worldMatrix = worldMatrix
 
@@ -217,7 +217,7 @@ class PathfindingManager():
 
 
 
-        print("pathfinding coordinates ", pathFindingPosX, " ", pathFindingPosY)
+        #print("pathfinding coordinates ", pathFindingPosX, " ", pathFindingPosY)
 
         # convert target position to pathfinding space
         pathFindingTargetPosX = int(targetPos[0] / self.pathFindingGridSquareWidth)
@@ -233,7 +233,7 @@ class PathfindingManager():
         if(pathFindingTargetPosY < 0):
             pathFindingTargetPosY = 0
 
-        print("pathfinding target coordinates ", pathFindingTargetPosX, " ", pathFindingTargetPosY)
+        #print("pathfinding target coordinates ", pathFindingTargetPosX, " ", pathFindingTargetPosY)
         
         lastTileValue = self.worldMatrix[pathFindingPosY, pathFindingPosX]
         # if agent shares tile with stationary:

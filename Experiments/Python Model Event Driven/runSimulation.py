@@ -366,6 +366,7 @@ def RemoveAgent(agent, agentRemovalRequestPublisher):
     msg.data = agent.id
     agentRemovalRequestPublisher.publish(msg)
     agents.remove(agent)
+    agent.delete()
     SortAgentsByRole()
 
     add_sound = pygame.mixer.Sound("audio/remove_test.mp3")
