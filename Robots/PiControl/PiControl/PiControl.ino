@@ -10,11 +10,6 @@ Kinematics_c kinematics;
 #define FWD LOW
 #define REV HIGH
 
-#define SPEED_SCALE (255.0 / 1.5)
-#define MAX_SPEED 0.25
-
-#define TURNING_MULTIPLIER 1.5
-
 //  Defines motor pins
 #define L_PWM_PIN 10
 #define L_DIR_PIN 16
@@ -24,6 +19,14 @@ Kinematics_c kinematics;
 #define POSE_PACKET 0
 #define FORCE_PACKET 1
 #define UNCERTAINTY_PACKET 2
+
+#define SPEED_SCALE (255.0 / 1.5);
+#define TURNING_MULTIPLIER 1.5;
+
+float MAX_SPEED = 0.25;
+int turnDirection = 1;
+
+float speed;
 
 float force_x = 0;
 float force_y = 0;
@@ -120,7 +123,26 @@ void i2c_recvStatus(int len)
     Serial.println((String) "Angle" + angle);
 
     goal = angle;
-    Serial.println((String) "goal " + goal);
+
+  if (abs(goal)>PI/2) {
+    if(goal>0)
+    {
+      goal -= PI;
+    }
+    else
+    {
+      goal += PI;
+    }
+    MAX_SPEED = -0.25;
+    speed = -sqrt(force_x * force_x + force_y * force_y);
+    Serial.println((String) "goal set as " + goal);
+    turnDirection = -1 ;
+    // need to add code to make it reverse instead of turn forward
+  }
+  else{Serial.println((String) "Speed: " + speed);
+  speed = sqrt(force_x * force_x + force_y * force_y);
+  MAX_SPEED = 0.25;
+  turnDirection = 1;}
   }
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
     kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
@@ -131,6 +153,7 @@ void i2c_recvStatus(int len)
     position_uncertainty = i2c_status_rx.x;
     rotation_uncertainty = i2c_status_rx.theta;
   }
+
 }
 
 void setup()
@@ -213,38 +236,23 @@ void loop()
 {
 
   float theta = kinematics.currentRotationCutoff; 
-  float error = goal - theta;
+  float error = (goal - theta)*turnDirection;
 
   theta = between_pi(theta);
   error = between_pi(error);
 
-  if (abs(error)>PI/2) {
-    float baseSpeed = -30 ;
-    float turnRate = -40; // larger value = smaller turning circle
-    if(error>0)
-    {
-      goal -= PI;
-    }
-    else
-    {
-      goal += PI;
-    }
-  }
-
   if (force_x * force_x + force_y * force_y > 0.001)
   {
-    float speed = sqrt(force_x * force_x + force_y * force_y);
-    if (speed > MAX_SPEED) {
+    if (abs(speed) > abs(MAX_SPEED)) {
       speed = MAX_SPEED;
     }
     speed *= SPEED_SCALE;
-    if (speed < 20.0) {
-      speed = 20.0;
+    if (abs(speed) < 25.0) {
+      if(speed>0){speed=25.0;}
+      else{speed=-25.0;}
     }
     if (abs(error) > 0.2)
-    {
-      float baseSpeed = speed;
-      // float turnRate = 40; // larger value = smaller turning circle
+    { float baseSpeed = speed;
 
       float scaled_error = error * TURNING_MULTIPLIER;
       if (scaled_error > PI) {
@@ -255,8 +263,6 @@ void loop()
       }
 
       if (error > 0){
-        // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
-        // leftVel = baseSpeed - error*turnRate ;
         leftVel = baseSpeed * cos(scaled_error);
         rightVel = baseSpeed;
       }
@@ -265,7 +271,6 @@ void loop()
         leftVel = baseSpeed ;
         rightVel = baseSpeed * cos(scaled_error);
       }
-        // rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
       setLeftMotor(leftVel);
       setRightMotor(rightVel);
     }
@@ -276,11 +281,9 @@ void loop()
     go_forward(0);
   }
 
-  Serial.println((String) "Error: " + error);
+  //Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
-  Serial.println((String) "x: " + force_x);
-  Serial.println((String) "y:" + force_y);
 
   kinematics.updateLoop();
   // delay(1);
