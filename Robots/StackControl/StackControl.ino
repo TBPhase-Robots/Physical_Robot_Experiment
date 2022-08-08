@@ -40,6 +40,13 @@
 #define FORCE_PACKET 1
 #define UNCERTAINTY_PACKET 2
 
+//  Time between timer updates, in milliseconds
+#define TIMER_RATE 200
+
+//  Stops the robot if no vectors are recieved after VECTOR_STOP_TIME timer updates.
+#define VECTOR_STOP_TIME 5
+
+
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
 // Needs to match the master device
@@ -107,6 +114,8 @@ rclc_executor_t executor;
 int id = -1;
 bool configured = false;
 
+uint timer_calls_without_vector = 0;
+
 int64_t marker = 0;
 
 Timer<10> timer;
@@ -159,6 +168,8 @@ void vector_callback(const void * msgin)
   Wire.beginTransmission(ROBOT_I2C_ADDR);
   Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
   Wire.endTransmission();
+
+  timer_calls_without_vector = 0;
 }
 
 bool first_pose = true;
@@ -365,7 +376,7 @@ void configure_robot() {
 
   delay(500);
 
-  timer.every(200, timer_callback);
+  timer.every(TIMER_RATE, timer_callback);
 
   Serial.println("Sending id acknowledgement.");
   register_msg.data = id;
@@ -438,6 +449,21 @@ bool timer_callback(void* args) {
   pose_msg.position.y = i2c_status_rx.y;
   pose_msg.orientation.z = i2c_status_rx.theta;
   RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
+
+  if (timer_calls_without_vector >= VECTOR_STOP_TIME) {
+    i2c_status_tx.x = 0;
+    i2c_status_tx.y = 0;
+    i2c_status_tx.theta = 0;
+    i2c_status_tx.status = 0;
+    i2c_status_tx.packet_type = FORCE_PACKET;
+
+    //  Sends i2c_status to the 3Pi
+    Wire.beginTransmission(ROBOT_I2C_ADDR);
+    Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
+    Wire.endTransmission();
+  }
+
+  timer_calls_without_vector++;
 
   return true;
 }
