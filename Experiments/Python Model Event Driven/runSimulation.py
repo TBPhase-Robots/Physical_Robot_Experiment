@@ -1,3 +1,4 @@
+from cv2 import AGAST_FEATURE_DETECTOR_NONMAX_SUPPRESSION
 import pygame
 import colours
 import sys
@@ -36,7 +37,6 @@ from std_msgs.msg import ColorRGBA
 from model.PathfindingManager import PathfindingManager
 
 
-
 state = "standby_setup_loop"
 postedUpdates = 0
 sendUpdates = False
@@ -53,19 +53,16 @@ standby = pygame.sprite.Group()
 agents = pygame.sprite.Group()
 
 
-
-config_name='defaultConfig'
+config_name = 'defaultConfig'
 rclpy.init(args=None)
 simulationNode = SimulationNode()
 
-cfg =0
+cfg = 0
 with open(f"experiment_config_files/{config_name}.json") as json_file:
     cfg = json.load(json_file)
 
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
-
-
 
 
 # callback invoked by state controller to change the current config file
@@ -78,18 +75,16 @@ def SetConfigCallback(data):
         with open(f"experiment_config_files/{cfgName}.json") as json_file:
             cfg = json.load(json_file)
             print("changed cfg to ", cfgName)
-            
+
             state == "standby_setup_loop"
             print("simulation state changed to ", state)
 
             for agent in agents:
                 agent.SetAgentConfig(cfg)
 
-
     except:
         print("incorrect file name ", cfgName)
 
-   
 
 # controller callback is called by an agent whenever it has successfully updated its state via ROS pose
 def ControllerCallback(data):
@@ -97,6 +92,7 @@ def ControllerCallback(data):
     postedUpdates += 1
    # print("topic contents:")
    # print(data)
+
 
 def DispatchCallback(data):
     print("DispatchCallback")
@@ -117,7 +113,6 @@ def DispatchCallback(data):
             SortAgentsByRole()
 
 
-
 def GetAnyAgentFromGroup(group):
     for agent in group:
         return agent
@@ -133,10 +128,11 @@ def CommandListenerCallback(data):
     if(data.data == "set_to_standby"):
         for agent in agents:
             agent.role = "standby"
-        
+
         SortAgentsByRole()
     else:
         state = data.data
+
 
 def calc_voronoi_partitioning(flock, pack):
     for dog in pack:
@@ -150,38 +146,43 @@ def calc_voronoi_partitioning(flock, pack):
                 min_dist = dist
                 sheep.set_closest_dog(dog)
         sheep.closest_dog.add_sheep_to_sub_flock(sheep)
-#end function
+# end function
+
 
 def add_agent(agents, position, cfg, id, screen, simulationNode):
-    agent = Agent(position = position, id = id, cfg = cfg, rotation=0.0, poseAgentCallback=ControllerCallback, role = "agent", screen = screen, simulationNode=simulationNode)
+    agent = Agent(position=position, id=id, cfg=cfg, rotation=0.0, poseAgentCallback=ControllerCallback,
+                  role="agent", screen=screen, simulationNode=simulationNode)
     agents.add(agent)
     add_sound = pygame.mixer.Sound("audio/added_test.mp3")
     pygame.mixer.Sound.play(add_sound)
-    agent.PublishForceToTopic(np.array([0.0,0.0]), screen)
+    agent.PublishForceToTopic(np.array([0.0, 0.0]), screen)
     # agent.role = 'agent'
     return id + 1
 
+
 def add_agent_callback(msg):
     global agents
-   
-    
+
     print("========= callback done")
     print(msg)
     new_id = msg.data
 
     randx = random.uniform(50, 900)
     randy = random.uniform(50, 550)
-    add_agent(agents=agents, position = np.array([randx,randy]), cfg = cfg, id = new_id, screen=screen, simulationNode=simulationNode)
-
+    add_agent(agents=agents, position=np.array(
+        [randx, randy]), cfg=cfg, id=new_id, screen=screen, simulationNode=simulationNode)
 
 
 def DrawWorld(cfg):
     screen.fill(colours.DGREY)
-    pygame.draw.rect(screen, colours.GREY, pygame.Rect(0, 0, cfg['world_width'], cfg['world_height']))
+    pygame.draw.rect(screen, colours.GREY, pygame.Rect(
+        0, 0, cfg['world_width'], cfg['world_height']))
     # Draw target box
-    pygame.draw.rect(screen, colours.RED, pygame.Rect(cfg['target_position'][0] - 100, cfg['target_position'][1] - 100, 200, 200), 3)
+    pygame.draw.rect(screen, colours.RED, pygame.Rect(
+        cfg['target_position'][0] - 100, cfg['target_position'][1] - 100, 200, 200), 3)
 
-    pygame.draw.rect(screen, colours.BLUE, pygame.Rect(cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
+    pygame.draw.rect(screen, colours.BLUE, pygame.Rect(
+        cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
 
     for pos in cfg['initial_sheep_positions']:
         pygame.draw.circle(screen, colours.WHITE, pos, 2)
@@ -192,11 +193,8 @@ def DrawWorld(cfg):
     for pos in cfg['standby_positions']:
         pygame.draw.circle(screen, colours.RED, pos, 2)
 
-
-
-    #pygame.display.update()
-    #pygame.display.flip()
-
+    # pygame.display.update()
+    # pygame.display.flip()
 
 
 # calls standard behaviour on all sheep and dog agents for simulation
@@ -205,7 +203,7 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
         calc_voronoi_partitioning(flock, pack)
         for dog in pack:
             dog.SimulationUpdate_Dog(screen, flock, pack, agents, cfg)
-        
+
     else:
         for sheep in flock:
             sheep.closest_dog = None
@@ -213,7 +211,8 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
     if(len(flock) > 0):
         for sheep in flock:
 
-            sheep.SimulationUpdate_Sheep(screen, flock, pack, agents, cfg)                  
+            sheep.SimulationUpdate_Sheep(screen, flock, pack, agents, cfg)
+
 
 def MoveToPointDecision(agent: Agent, movePos, cfg):
     #print(f'deciding to moving agent {agent.id}')
@@ -222,14 +221,16 @@ def MoveToPointDecision(agent: Agent, movePos, cfg):
     agentPos = np.array([agent.position[0], agent.position[1]])
     if(np.linalg.norm(movePos - agentPos) > 85):
        # print(f'moving agent {agent.id}')
-        agent.MoveToPoint(point_x = point_x, point_y = point_y, screen = screen, agents = agents, cfg = cfg)
+        agent.MoveToPoint(point_x=point_x, point_y=point_y,
+                          screen=screen, agents=agents, cfg=cfg)
     else:
         #print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
+
 def FollowPathDecision(agent: Agent, path, cfg):
 
-    pathFindingTileRadius= cfg['world_width'] / cfg['path_finding_width']
+    pathFindingTileRadius = cfg['world_width'] / cfg['path_finding_width']
 
     if(len(path) == 0):
         agent.HaltAgent(screen=screen)
@@ -242,35 +243,36 @@ def FollowPathDecision(agent: Agent, path, cfg):
         if(len(path) == 1):
             if(not cfg['event_driven']):
                 pathFindingTileRadius = 8
-        
+
         if(np.linalg.norm(targetPos - agentPos) > pathFindingTileRadius):
-            agent.MoveToPoint(point_x = targetPos[0], point_y = targetPos[1], screen = screen, agents = agents, cfg = cfg)
+            agent.MoveToPoint(
+                point_x=targetPos[0], point_y=targetPos[1], screen=screen, agents=agents, cfg=cfg)
         else:
             path = path[1:]
             agent.SetPath(path)
-            
+
     else:
         agent.HaltAgent(screen=screen)
         return 1
 
     return 0
-    
+
 
 def StandbySetupUpdateTimestep(agents, cfg):
     # make all agents go to top
     standbyPositions = cfg['standby_positions']
     i = 0
     for agent in agents:
-        i +=1 
+        i += 1
         point = standbyPositions[i]
         # if the distance between target point and self is very low, halt movement and do not send move command
         movePos = np.array(point)
-        MoveToPointDecision(agent = agent, movePos = movePos, cfg = cfg)
+        MoveToPointDecision(agent=agent, movePos=movePos, cfg=cfg)
+
 
 def SetAllAgentRolesToStandby():
     for agent in agents:
         agent.role = "standby"
-
 
 
 def SortAgentsByRole():
@@ -286,13 +288,12 @@ def SortAgentsByRole():
     flock.empty()
     pigs.empty()
     standby.empty()
-    
+
     msg = Float64()
     msg.data = 1.0
 
     colourMsg = ColorRGBA()
-    
-    
+
     for agent in agents:
         if(agent.role == "dog"):
             pack.add(agent)
@@ -316,7 +317,8 @@ def SortAgentsByRole():
             colourMsg.g = 1.0
             colourMsg.b = 1.0
             agent.colourPublisher.publish(colourMsg)
-            print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - SHEEP")
+            print("setting agent ", str(agent.id),
+                  " colour to ", str(colourMsg), " - SHEEP")
 
         if(agent.role == "pig"):
             pigs.add(agent)
@@ -329,7 +331,8 @@ def SortAgentsByRole():
             colourMsg.g = 0.0
             colourMsg.b = 0.0
             agent.colourPublisher.publish(colourMsg)
-            print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - PIG")
+            print("setting agent ", str(agent.id),
+                  " colour to ", str(colourMsg), " - PIG")
         if(agent.role == "standby"):
             standby.add(agent)
             msg.data = robot_standby_speed
@@ -341,14 +344,17 @@ def SortAgentsByRole():
             colourMsg.g = 1.0
             colourMsg.b = 0.0
             agent.colourPublisher.publish(colourMsg)
-            print("setting agent ", str(agent.id), " colour to ", str(colourMsg), " - STANDBY")
+            print("setting agent ", str(agent.id),
+                  " colour to ", str(colourMsg), " - STANDBY")
 
-        
+
 def isInRectangle(centerX, centerY, radius, x, y):
 
-        return x >= centerX - radius and x <= centerX + radius and y >= centerY - radius and y <= centerY + radius 
+    return x >= centerX - radius and x <= centerX + radius and y >= centerY - radius and y <= centerY + radius
 
-#test if coordinate (x, y) is within a radius from coordinate (center_x, center_y)
+# test if coordinate (x, y) is within a radius from coordinate (center_x, center_y)
+
+
 def isPointInCircle(centerX, centerY, radius, x, y):
     if(isInRectangle(centerX, centerY, radius, x, y)):
         dx = centerX - x
@@ -359,6 +365,7 @@ def isPointInCircle(centerX, centerY, radius, x, y):
         radiusSquared = radius * radius
         return distanceSquared <= radiusSquared
     return False
+
 
 def RemoveAgent(agent, agentRemovalRequestPublisher):
     print("removing agent ", agent.id)
@@ -372,12 +379,16 @@ def RemoveAgent(agent, agentRemovalRequestPublisher):
     add_sound = pygame.mixer.Sound("audio/remove_test.mp3")
     pygame.mixer.Sound.play(add_sound)
 
+def RemoveAgentCallback(message):
+    id = message.data
+    for agent in agents:
+        if agent.id == id:
+            RemoveAgent(agent, agentRemovalRequestPublisher)
+    
+#end functon
+
 
 def main(show_empowerment=False):
-
-    
-
-
 
     global screen
     global state
@@ -394,15 +405,12 @@ def main(show_empowerment=False):
     robot_sheep_speed = cfg['robot_sheep_max_speed']
     robot_standby_speed = cfg['robot_standby_max_speed']
 
-
-
-
     end_game = False
 
     pygame.init()
 
-   
-    screen = pygame.display.set_mode([cfg['world_width'] + 80,cfg['world_height']])
+    screen = pygame.display.set_mode(
+        [cfg['world_width'] + 80, cfg['world_height']])
 
     pathfindingManager = PathfindingManager(screen, cfg)
 
@@ -410,50 +418,50 @@ def main(show_empowerment=False):
 
     agent_id = 0
 
-
     commandListenerTopicName = "/controller/command"
     dispatchListenerTopicName = "/controller/dispatch"
     agentListenerTopicName = "/global/robots/added"
     jsonListenerTopicName = "/controller/config"
     agentRemovalPublisherTopicName = "/global/agents/removal_requests"
-
-    
+    killListenerTopicName = "/controller/command"
 
     # define the state command listener:
-    commandListener = simulationNode.CreateStringListener(commandListenerTopicName, CommandListenerCallback) 
+    commandListener = simulationNode.CreateStringListener(
+        commandListenerTopicName, CommandListenerCallback)
 
     # define the dispatch listener
-    dispatchListener = simulationNode.CreateStringListener(dispatchListenerTopicName, DispatchCallback)
+    dispatchListener = simulationNode.CreateStringListener(
+        dispatchListenerTopicName, DispatchCallback)
 
     # define the add agent listener
-    agentListener = simulationNode.CreateAgentListener(agentListenerTopicName, add_agent_callback)
+    agentListener = simulationNode.CreateAgentListener(
+        agentListenerTopicName, add_agent_callback)
 
-    jsonListener= simulationNode.CreateStringListener(jsonListenerTopicName, SetConfigCallback)
+    jsonListener = simulationNode.CreateStringListener(
+        jsonListenerTopicName, SetConfigCallback)
 
-    agentRemovalRequestPublisher = simulationNode.CreateIntPublisher(agentRemovalPublisherTopicName)
+    global agentRemovalRequestPublisher
+    agentRemovalRequestPublisher = simulationNode.CreateIntPublisher(
+        agentRemovalPublisherTopicName)
+
+    killListener = simulationNode.create_subscription(Int32, "/global/agents/removed", )
 
     # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
 
     SortAgentsByRole()
 
-    
-
-
-    
-    
-    
     pathfindingAgentId = 0
 
     while (not end_game):
         for event in pygame.event.get():
-            if event.type==QUIT:
+            if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
 
             if(event.type == pygame.MOUSEBUTTONDOWN):
                 if(event.button == 3):
-                    
+
                     # get the screen coordinates of the click
                     clickPos = event.pos
                     # if the screen coordinates of the click lie within the bounds of an agent
@@ -461,23 +469,19 @@ def main(show_empowerment=False):
                         closest_agent = None
                         # get boundary of agent
                         for agent in agents:
-                            if(isPointInCircle(centerX = agent.position[0], centerY=agent.position[1], radius=cfg['agent_radius'], x = clickPos[0], y = clickPos[1])):
+                            if(isPointInCircle(centerX=agent.position[0], centerY=agent.position[1], radius=cfg['agent_radius'], x=clickPos[0], y=clickPos[1])):
                                 # remove agent
-                                print("REMOVE THE AGENT FROM THE BOTTOM OF THE SCREEN")
+                                print(
+                                    "REMOVE THE AGENT FROM THE BOTTOM OF THE SCREEN")
                                 closest_agent = agent
-                                RemoveAgent(agent, agentRemovalRequestPublisher)
+                                RemoveAgent(
+                                    agent, agentRemovalRequestPublisher)
 
                     # then remove it
 
         DrawWorld(cfg=cfg)
 
-        
-
-        
-        
-
         rclpy.spin_once(simulationNode, timeout_sec=0.1)
-
 
         # look out for commands send to this script
         #rclpy.spin_once(commandListener, timeout_sec=0.01)
@@ -486,7 +490,7 @@ def main(show_empowerment=False):
         # check if we have add/remove agents
         #rclpy.spin_once(agentListener, timeout_sec=0.01)
 
-        # draw world 
+        # draw world
 
         if(postedUpdates > 0):
             sendUpdates = True
@@ -494,13 +498,10 @@ def main(show_empowerment=False):
         else:
             sendUpdates = False
 
-        
         # if we have recieved an update from one of the agents, then proceed with simulation
         if(sendUpdates or not cfg['event_driven']):
-           
 
             if(state == "setup_start"):
-              
 
                 # we assume all agents are in standby position. Set all agents to standby:
                 SetAllAgentRolesToStandby()
@@ -517,7 +518,7 @@ def main(show_empowerment=False):
                     i += 1
                     if(i >= n):
                         break
-                
+
                 # re order the groups of agents
                 SortAgentsByRole()
                 time.sleep(0.2)
@@ -554,16 +555,11 @@ def main(show_empowerment=False):
                 SortAgentsByRole()
                 time.sleep(0.5)
 
-                
-
-
-
-
                 stationaryAgents = [pack, standby, pigs]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents, sheepPositions)
+                pathfindingManager.GenerateWorldMatrix(
+                    stationaryAgents, sheepPositions)
 
-                
-                i =0
+                i = 0
                 for sheep in flock:
                     pos = sheepPositions[i]
                     #sheep = GetAnyAgentFromGroup(flock)
@@ -573,30 +569,29 @@ def main(show_empowerment=False):
                 # advance the state machine loop to the next state
                 state = "sheep_setup_loop"
                 pathfindingAgentId = 0
-             
-
-            
 
             if(state == "sheep_setup_loop"):
 
                 # get the list of positions for sheep to move to
 
                 if(cfg['sequential_pathfinding']):
-                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, flock, agents, cfg, FollowPathDecision, cfg['initial_sheep_positions'])
-                
-                else:
-                    #simultaneous
-                    for sheep in flock:
-                        FollowPathDecision(agent= sheep, path=sheep.path, cfg=cfg)
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
+                        pathfindingAgentId, flock, agents, cfg, FollowPathDecision, cfg['initial_sheep_positions'])
 
-            
+                else:
+                    # simultaneous
+                    for sheep in flock:
+                        FollowPathDecision(
+                            agent=sheep, path=sheep.path, cfg=cfg)
+
             if(state == "dog_setup_start"):
 
                 i = 0
                 stationaryAgents = [flock, standby, pigs]
                 dogPositions = cfg['initial_dog_positions']
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents, dogPositions)
-                
+                pathfindingManager.GenerateWorldMatrix(
+                    stationaryAgents, dogPositions)
+
                 for dog in pack:
                     pos = dogPositions[i]
                     dog.SetPath(pathfindingManager.FindPath(dog, pos))
@@ -608,17 +603,19 @@ def main(show_empowerment=False):
             if(state == "dog_setup_loop"):
 
                 if(cfg['sequential_pathfinding']):
-                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, pack, agents, cfg, FollowPathDecision, cfg['initial_dog_positions'])
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
+                        pathfindingAgentId, pack, agents, cfg, FollowPathDecision, cfg['initial_dog_positions'])
                 else:
                     for dog in pack:
-                        FollowPathDecision(agent= dog, path=dog.path, cfg=cfg)
+                        FollowPathDecision(agent=dog, path=dog.path, cfg=cfg)
 
             if(state == "pig_setup_start"):
                 i = 0
                 stationaryAgents = [flock, standby, pack]
                 pigPositions = cfg['pigsty_positions']
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents, pigPositions)
-                
+                pathfindingManager.GenerateWorldMatrix(
+                    stationaryAgents, pigPositions)
+
                 for pig in pigs:
                     pos = pigPositions[i]
                     pig.SetPath(pathfindingManager.FindPath(pig, pos))
@@ -626,20 +623,21 @@ def main(show_empowerment=False):
 
                 state = "pig_setup_loop"
                 pathfindingAgentId = 0
-            
+
             if(state == "pig_setup_loop"):
                 if(cfg['sequential_pathfinding']):
-                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(pathfindingAgentId, pigs, agents, cfg, FollowPathDecision, cfg['pigsty_positions'])
+                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
+                        pathfindingAgentId, pigs, agents, cfg, FollowPathDecision, cfg['pigsty_positions'])
                 else:
                     for pig in pigs:
-                        FollowPathDecision(agent= pig, path=pig.path, cfg=cfg)
-
+                        FollowPathDecision(agent=pig, path=pig.path, cfg=cfg)
 
             if(state == "standby_setup_start"):
                 i = 0
                 standbyPositions = cfg['standby_positions']
                 stationaryAgents = [flock, pigs, pack]
-                pathfindingManager.GenerateWorldMatrix(stationaryAgents, standbyPositions)
+                pathfindingManager.GenerateWorldMatrix(
+                    stationaryAgents, standbyPositions)
                 for agent in standby:
                     pos = standbyPositions[i]
                     agent.SetPath(pathfindingManager.FindPath(agent, pos))
@@ -648,49 +646,27 @@ def main(show_empowerment=False):
                 state = "standby_setup_loop"
                 pathfindingAgentId = 0
 
-
             if(state == "standby_setup_loop"):
                 for agent in standby:
-                    FollowPathDecision(agent = agent, path=agent.path, cfg=cfg)
-
-
+                    FollowPathDecision(agent=agent, path=agent.path, cfg=cfg)
 
             elif(state == "experiment"):
-                ExperimentUpdateTimestep(pack = pack, flock=flock,  cfg=cfg)
-                StandbySetupUpdateTimestep(agents = standby, cfg=cfg)
+                ExperimentUpdateTimestep(pack=pack, flock=flock,  cfg=cfg)
+                StandbySetupUpdateTimestep(agents=standby, cfg=cfg)
                 for pig in pigs:
                     pig.HaltAgent(screen)
             for agent in agents:
-                    agent.DrawSelf(screen)
+                agent.DrawSelf(screen)
         # if we are not cleared to send updates due to no incoming data (if in event driven mode), then draw all agents
         else:
-            
+
             for agent in agents:
                 agent.DrawSelf(screen)
 
-        #pygame.display.update()
+        # pygame.display.update()
         pygame.display.flip()
 
 
-            
-
-
-
-        
-
-        
-
-
-
-
-
-
-
-#end function
-
+# end function
 if __name__ == '__main__':
     main()
-        
-
-
-
