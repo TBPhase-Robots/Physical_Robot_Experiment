@@ -149,6 +149,10 @@ void drawMarker(u_int64_t data, uint32_t background) {
       M5.lcd.fillRect(x, y, size, size, WHITE);
     }
   }
+
+  char s[32]; 
+  sprintf(s, "%d", id);
+  M5.lcd.drawString(s, 0, 0);
 }
 
 // Handles vector messages recieved from a ROS subscription

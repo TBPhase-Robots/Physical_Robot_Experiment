@@ -20,7 +20,7 @@ class Robot():
     id: int
     marker_publisher: Publisher
     heartbeat_subscription: Subscription
-    alive: bool = True
+    alive: bool = False
     time_since_heartbeat: float = 0
 
     def heartbeat_callback(self, msg: Bool):
@@ -106,6 +106,8 @@ class Server(Node):
 
         self.destroy_subscription(robot.heartbeat_subscription)
         self.destroy_publisher(robot.marker_publisher)
+        self.active_robot_ids.remove(robot.id)
+        self.active_robots.remove(robot)
 
 
 def main():
@@ -117,7 +119,7 @@ def main():
     while rclpy.ok():
         rclpy.spin_once(server, timeout_sec=200)
         current_time = time.time_ns()
-        # server.check_alive(current_time - past_time)
+        server.check_alive(current_time - past_time)
         past_time = current_time
 
 
