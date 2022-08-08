@@ -11,7 +11,9 @@ Kinematics_c kinematics;
 #define REV HIGH
 
 #define SPEED_SCALE (255.0 / 1.5)
-#define MAX_SPEED 0.4
+#define MAX_SPEED 0.25
+
+#define TURNING_MULTIPLIER 1.5
 
 //  Defines motor pins
 #define L_PWM_PIN 10
@@ -28,6 +30,8 @@ float force_y = 0;
 float goal = 0;
 float position_uncertainty = 0.3;
 float rotation_uncertainty = 0.5;
+float leftVel = 30;
+float rightVel = 30;
 
 // Data to send(tx) and receive(rx)
 // on the i2c bus.
@@ -185,6 +189,8 @@ void go_forward(float vel)
 {
   setLeftMotor(vel);
   setRightMotor(vel);
+  leftVel = vel ;
+  rightVel = vel ;
 }
 
 float between_pi(float angle) {
@@ -212,40 +218,62 @@ void loop()
   theta = between_pi(theta);
   error = between_pi(error);
 
-  if (abs(error) > 0.2)
-  {
-    float limit = 0.75;
-    if (abs(error) < limit)
+  if (abs(error)>PI/2) {
+    float baseSpeed = -30 ;
+    float turnRate = -40; // larger value = smaller turning circle
+    if(error>0)
     {
-      if (error > 0)
-      {
-        error = limit;
-      }
-      else
-      {
-        error = -limit;
-      }
+      goal -= PI;
     }
-    set_z_rotation(error);
+    else
+    {
+      goal += PI;
+    }
   }
-  else
+
+  if (force_x * force_x + force_y * force_y > 0.001)
   {
-    if (force_x * force_x + force_y * force_y > 0.001)
-    {
-      float speed = sqrt(force_x * force_x + force_y * force_y);
-      if (speed > MAX_SPEED) {
-        go_forward(MAX_SPEED * SPEED_SCALE);
-      }
-      else {
-        speed *= SPEED_SCALE;
-        if (speed < 20.0) {
-          speed = 20.0;
-        }
-        go_forward(speed);
-      }
-    } else {
-      go_forward(0);
+    float speed = sqrt(force_x * force_x + force_y * force_y);
+    if (speed > MAX_SPEED) {
+      speed = MAX_SPEED;
     }
+    speed *= SPEED_SCALE;
+    if (speed < 20.0) {
+      speed = 20.0;
+    }
+    if (abs(error) > 0.2)
+    {
+      float baseSpeed = speed;
+      // float turnRate = 40; // larger value = smaller turning circle
+
+      float scaled_error = error * TURNING_MULTIPLIER;
+      if (scaled_error > PI) {
+        scaled_error = PI;
+      }
+      if (scaled_error < -PI) {
+        scaled_error = -PI;
+      }
+
+      if (error > 0){
+        // you need to turn clockwise, therefore increase the left wheel speed, potentially decrease right
+        // leftVel = baseSpeed - error*turnRate ;
+        leftVel = baseSpeed * cos(scaled_error);
+        rightVel = baseSpeed;
+      }
+      else{
+        // you need to turn anticlockwise, need to increase right wheel 
+        leftVel = baseSpeed ;
+        rightVel = baseSpeed * cos(scaled_error);
+      }
+        // rightVel = baseSpeed + error*turnRate ;} // error is less than 0 so must minus it rather than add it
+      setLeftMotor(leftVel);
+      setRightMotor(rightVel);
+    }
+    else {
+      go_forward(speed);
+    }
+  } else {
+    go_forward(0);
   }
 
   Serial.println((String) "Error: " + error);
