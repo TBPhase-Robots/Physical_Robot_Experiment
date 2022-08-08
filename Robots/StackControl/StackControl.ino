@@ -390,6 +390,7 @@ void configure_robot() {
 void setup() {
   //  Set up stack
   M5.begin();
+  M5.lcd.setTextSize(3);
 
   //  Set up serial connection for debugging
   Serial.begin(115200);
