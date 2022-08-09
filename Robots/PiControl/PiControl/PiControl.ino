@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include "encoders.h"
 #include "kinematics.h"
+//#include <Zumo32U4.h>
 
 Kinematics_c kinematics;
 
@@ -109,7 +110,7 @@ void i2c_recvStatus(int len)
   //  Read the i2c status sent by the Core2
   Wire.readBytes((byte *)&i2c_status_rx, sizeof(i2c_status_rx));
 
-  Serial.println((String) "Message recieved");
+ // Serial.println((String) "Message recieved");
 
   //  Set both motors to run at the speed of the status x value
   // setLeftMotor(i2c_status_rx.x);
@@ -120,7 +121,7 @@ void i2c_recvStatus(int len)
     force_y = i2c_status_rx.y;
 
     float angle = atan2(force_y, force_x);
-    Serial.println((String) "Angle" + angle);
+    //Serial.println((String) "Angle" + angle);
 
     goal = angle;
   }
@@ -136,13 +137,44 @@ void i2c_recvStatus(int len)
 
 }
 
+inline uint16_t readBatteryMillivolts()
+ {
+     const uint8_t sampleCount = 8;
+     uint16_t sum = 0;
+     for (uint8_t i = 0; i < sampleCount; i++)
+     {
+         sum += analogRead(A1);
+     }
+  
+     // VBAT = 2 * millivolt reading = 2 * raw * 5000/1024
+     //      = raw * 625 / 64
+     // The correction term below makes it so that we round to the
+     // nearest whole number instead of always rounding down.
+     const uint32_t correction = 32 * sampleCount - 1;
+     return ((uint32_t)sum * 625 + correction) / (64 * sampleCount);
+ }
+
+int battery_millivolts;
+
 void setup()
 {
+  battery_millivolts = readBatteryMillivolts();
+  if (battery_millivolts / 4 < 700 && battery_millivolts > 20) {
+    tone(6, 1000);
+    delay(200);
+    tone(6, 1500);
+    delay(200);
+    noTone(6);
+    delay(300);
+  }
+  
   //  Sets up motor output pins
   pinMode(L_DIR_PIN, OUTPUT);
   pinMode(L_PWM_PIN, OUTPUT);
   pinMode(R_DIR_PIN, OUTPUT);
   pinMode(R_PWM_PIN, OUTPUT);
+
+  pinMode(A1, INPUT);
 
   //  Stops both motors
   setLeftMotor(0);
@@ -212,12 +244,28 @@ float between_pi(float angle) {
   return angle;
 }
 
+int batteryTS = 0;
+int currentTS = 0;
+
 void loop()
 {
-
   float theta = kinematics.currentRotationCutoff; 
   float error = (goal - theta);
   float newGoal ;
+
+  currentTS = millis();
+  if (currentTS - batteryTS > 20000) {
+    battery_millivolts = readBatteryMillivolts();
+    if (battery_millivolts / 4 < 700 && battery_millivolts > 20) {
+      tone(6, 1000);
+      delay(200);
+      tone(6, 1500);
+      delay(200);
+      noTone(6);
+      delay(300);
+    }
+    batteryTS = millis();
+  }
 
   theta = between_pi(theta);
   error = between_pi(error);
@@ -233,11 +281,11 @@ void loop()
     }
     MAX_SPEED = -0.25;
     speed = -sqrt(force_x * force_x + force_y * force_y);
-    Serial.println((String) "goal set as " + goal);
+    //Serial.println((String) "goal set as " + goal);
     turnDirection = -1 ;
     // need to add code to make it reverse instead of turn forward
   }
-  else{Serial.println((String) "Speed: " + speed);
+  else{//Serial.println((String) "Speed: " + speed);
   speed = sqrt(force_x * force_x + force_y * force_y);
   MAX_SPEED = 0.25;
   turnDirection = 1;}
@@ -284,9 +332,9 @@ void loop()
     go_forward(0);
   }
 
-  Serial.println((String) "Error: " + error);
-  Serial.println((String) "Desired angle: " + goal);
-  Serial.println((String) "Angle of robot:" + theta);
+  //Serial.println((String) "Error: " + error);
+  //Serial.println((String) "Desired angle: " + goal);
+  //Serial.println((String) "Angle of robot:" + theta);
 
   kinematics.updateLoop();
   // delay(1);
