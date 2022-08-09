@@ -195,6 +195,8 @@ class ArucoTrack(Node):
         self.create_robot(msg.data)
 
     def removed_robot_callback(self, msg: Int32):
+        self.logger.log(f'removing robot: {msg.data}')
+        self.remove_robot(msg.data)
         self.active_robots.remove(msg.data)
 
     def calc_positions(self):
@@ -251,15 +253,19 @@ class ArucoTrack(Node):
             #     self.logger.warn(f"No publisher for robot{pos[0]}")
             
             
-    def create_robot(self,ID):
+    def create_robot(self, ID):
         """
         As the Aruco gives an ID number, a dictionary containing all the publishing objects is created, with each robots publisher as the key
         """
         pub_name = f"/robot{ID}/camera_poses"
-        mid_name = f"/robot{ID}/middle"
         self.pub_dict[ID] = self.create_publisher(Pose, pub_name, 10)
-        self.middle_pubs[ID] = self.create_publisher(Pose,mid_name,10)
-        # self.pub_dict[ID] = rospy.Publisher(pub_name,Pose,queue_size=1) 
+
+    def remove_robot(self, ID):
+        """
+        As the Aruco gives an ID number, a dictionary containing all the publishing objects is created, with each robots publisher as the key
+        """
+        self.destroy_publisher(self.pub_dict[ID])
+        self.pub_dict.pop(ID)
 
     def shutdown_callback(self):
 

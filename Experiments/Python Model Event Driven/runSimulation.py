@@ -444,7 +444,7 @@ def main(show_empowerment=False):
     agentRemovalRequestPublisher = simulationNode.CreateIntPublisher(
         agentRemovalPublisherTopicName)
 
-    killListener = simulationNode.create_subscription(Int32, "/global/agents/removed", )
+    killListener = simulationNode.create_subscription(Int32, "/global/agents/removed", RemoveAgentCallback, 10)
 
     # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
