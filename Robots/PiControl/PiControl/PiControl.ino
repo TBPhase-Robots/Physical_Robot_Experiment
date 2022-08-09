@@ -123,26 +123,6 @@ void i2c_recvStatus(int len)
     Serial.println((String) "Angle" + angle);
 
     goal = angle;
-
-  if (abs(goal)>PI/2) {
-    if(goal>0)
-    {
-      goal -= PI;
-    }
-    else
-    {
-      goal += PI;
-    }
-    MAX_SPEED = -0.25;
-    speed = -sqrt(force_x * force_x + force_y * force_y);
-    Serial.println((String) "goal set as " + goal);
-    turnDirection = -1 ;
-    // need to add code to make it reverse instead of turn forward
-  }
-  else{Serial.println((String) "Speed: " + speed);
-  speed = sqrt(force_x * force_x + force_y * force_y);
-  MAX_SPEED = 0.25;
-  turnDirection = 1;}
   }
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
     kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
@@ -236,10 +216,33 @@ void loop()
 {
 
   float theta = kinematics.currentRotationCutoff; 
-  float error = (goal - theta)*turnDirection;
+  float error = (goal - theta);
+  float newGoal ;
 
   theta = between_pi(theta);
   error = between_pi(error);
+
+  if (abs(error)>PI/2) {
+    if(goal>0)
+    {
+      newGoal = goal- PI;
+    }
+    else
+    {
+      newGoal = goal + PI;
+    }
+    MAX_SPEED = -0.25;
+    speed = -sqrt(force_x * force_x + force_y * force_y);
+    Serial.println((String) "goal set as " + goal);
+    turnDirection = -1 ;
+    // need to add code to make it reverse instead of turn forward
+  }
+  else{Serial.println((String) "Speed: " + speed);
+  speed = sqrt(force_x * force_x + force_y * force_y);
+  MAX_SPEED = 0.25;
+  turnDirection = 1;}
+
+  error = (newGoal - theta)*turnDirection; // recheck error
 
   if (force_x * force_x + force_y * force_y > 0.001)
   {
@@ -281,7 +284,7 @@ void loop()
     go_forward(0);
   }
 
-  //Serial.println((String) "Error: " + error);
+  Serial.println((String) "Error: " + error);
   Serial.println((String) "Desired angle: " + goal);
   Serial.println((String) "Angle of robot:" + theta);
 
