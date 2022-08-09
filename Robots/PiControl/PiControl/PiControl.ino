@@ -24,7 +24,7 @@ Kinematics_c kinematics;
 #define SPEED_SCALE (255.0 / 1.5);
 #define TURNING_MULTIPLIER 1.5;
 
-float MAX_SPEED = 0.25;
+#define MAX_SPEED 0.25
 int turnDirection = 1;
 
 float speed;
@@ -229,14 +229,11 @@ void go_forward(float vel)
 }
 
 float between_pi(float angle) {
-  while (abs(angle) > PI)
-  {
-    if (angle > 0)
-    {
+  while (abs(angle) > PI) {
+    if (angle > 0) {
       angle -= 2 * PI;
     }
-    else
-    {
+    else {
       angle += 2 * PI;
     }
   }
@@ -247,11 +244,11 @@ float between_pi(float angle) {
 int batteryTS = 0;
 int currentTS = 0;
 
-void loop()
-{
+void loop() {
   float theta = kinematics.currentRotationCutoff; 
   float error = (goal - theta);
-  float newGoal ;
+  float newGoal = goal;
+  float max_speed = MAX_SPEED;
 
   currentTS = millis();
   if (currentTS - batteryTS > 20000) {
@@ -270,57 +267,57 @@ void loop()
   theta = between_pi(theta);
   error = between_pi(error);
 
-  if (abs(error)>PI/2) {
-    if(goal>0)
-    {
-      newGoal = goal- PI;
+  if (abs(error) > PI / 2) {
+    if (goal > 0) {
+      newGoal = goal - PI;
     }
-    else
-    {
+    else {
       newGoal = goal + PI;
     }
-    MAX_SPEED = -0.25;
+    max_speed = -MAX_SPEED;
     speed = -sqrt(force_x * force_x + force_y * force_y);
     //Serial.println((String) "goal set as " + goal);
-    turnDirection = -1 ;
-    // need to add code to make it reverse instead of turn forward
+    turnDirection = -1;
   }
-  else{//Serial.println((String) "Speed: " + speed);
-  speed = sqrt(force_x * force_x + force_y * force_y);
-  MAX_SPEED = 0.25;
-  turnDirection = 1;}
+  else {
+    speed = sqrt(force_x * force_x + force_y * force_y);
+    turnDirection = 1;
+  }
 
-  error = (newGoal - theta)*turnDirection; // recheck error
+  error = (newGoal - theta) * turnDirection; // recheck error
+  error = between_pi(error);
 
-  if (force_x * force_x + force_y * force_y > 0.001)
-  {
-    if (abs(speed) > abs(MAX_SPEED)) {
-      speed = MAX_SPEED;
+  if (force_x * force_x + force_y * force_y > 0.001) {
+    if (abs(speed) > abs(max_speed)) {
+      speed = max_speed;
     }
     speed *= SPEED_SCALE;
     if (abs(speed) < 25.0) {
-      if(speed>0){speed=25.0;}
-      else{speed=-25.0;}
+      if (speed > 0) {
+        speed=25.0;
+      }
+      else {
+        speed=-25.0;
+      }
     }
-    if (abs(error) > 0.2)
-    { float baseSpeed = speed;
 
+    if (abs(error) > 0.2) {
       float scaled_error = error * TURNING_MULTIPLIER;
       if (scaled_error > PI) {
         scaled_error = PI;
       }
-      if (scaled_error < -PI) {
+      else if (scaled_error < -PI) {
         scaled_error = -PI;
       }
 
-      if (error > 0){
-        leftVel = baseSpeed * cos(scaled_error);
-        rightVel = baseSpeed;
+      if (error > 0) {
+        leftVel = speed * cos(scaled_error);
+        rightVel = speed;
       }
-      else{
+      else {
         // you need to turn anticlockwise, need to increase right wheel 
-        leftVel = baseSpeed ;
-        rightVel = baseSpeed * cos(scaled_error);
+        leftVel = speed;
+        rightVel = speed * cos(scaled_error);
       }
       setLeftMotor(leftVel);
       setRightMotor(rightVel);
@@ -328,7 +325,8 @@ void loop()
     else {
       go_forward(speed);
     }
-  } else {
+  }
+  else {
     go_forward(0);
   }
 

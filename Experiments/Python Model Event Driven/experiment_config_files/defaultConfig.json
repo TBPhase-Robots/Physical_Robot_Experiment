@@ -58,7 +58,7 @@
 
 
     "sequential_pathfinding" : true,
-    "agent_radius" : 40,
+    "agent_radius" : 50,
     
     "ticks_per_choice" : 5,
     "collection_radius" : 70,
