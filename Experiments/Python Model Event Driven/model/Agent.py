@@ -583,6 +583,10 @@ class Agent(pygame.sprite.Sprite):
         else:
             for sheep in flock:
                 sheep_positions.append(sheep.position)
+
+        if len(sheep_positions) == 0:
+            return np.zeros(2)
+
         C = Agent.calcCoM(self, sheep_positions)
         W = steering_point
 
