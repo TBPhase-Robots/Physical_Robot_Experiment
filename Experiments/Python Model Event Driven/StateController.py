@@ -12,6 +12,15 @@ from std_msgs.msg import String
 class Window(Frame):
 
 
+# State Controller is the separate standalone script that is used to send commands to runSimulation over ROS.
+# This means it can be run on any computer in the network (including your own)
+# Commands include changeing state machine state as well as adding and removing agents.
+
+# Add Agent should only ever be used when runSimulation.py is running locally, ie cfg['event_driven'] and cfg['event_driven_movements'] is set to false
+
+
+# AVAILABLE STATE COMMANDS TO SET TO runSimulation.py
+
 # states:
 
 # setup_start
@@ -180,6 +189,7 @@ rclpy.init(args=None)
 root = Tk()
 app = Window(root)
 root.wm_title("Tkinter button")
+# Set window resolution
 root.geometry("320x600")
 root.mainloop()
 

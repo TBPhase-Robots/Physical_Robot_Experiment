@@ -9,6 +9,8 @@ from std_msgs.msg import Int32
 from geometry_msgs.msg import Pose
 import random
 import string
+
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 class AgentListener(Node):
 
     def __init__(self, topic_name, controller_callback):

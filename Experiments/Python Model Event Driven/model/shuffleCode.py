@@ -1,3 +1,6 @@
+
+# CURRENTLY UNUSED AND UNFINISHED FILE, WILL SHUFFLE AGENT POSITIONS IF AGENTS ARE IN TARGET LOCATION OF OTHER AGENTS DURING PATHFINDING
+
 # backup code for the as yet unimplemented shuffle function
 
 if(state == "shuffle"):

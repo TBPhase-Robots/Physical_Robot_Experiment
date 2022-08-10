@@ -7,6 +7,7 @@ from rclpy.node import Node
 
 from std_msgs.msg import ColorRGBA
 
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 
 class ColourPublisher(Node):
 

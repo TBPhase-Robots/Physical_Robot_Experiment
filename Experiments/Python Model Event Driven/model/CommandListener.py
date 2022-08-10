@@ -8,6 +8,8 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
 import random
+
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 class CommandListener(Node):
 
     def __init__(self, topic_name, controller_callback):

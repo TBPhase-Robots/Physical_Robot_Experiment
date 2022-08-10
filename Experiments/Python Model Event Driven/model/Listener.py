@@ -8,6 +8,9 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
 
+
+
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 class Listener(Node):
 
     def __init__(self, id, controller_callback):

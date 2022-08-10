@@ -15,12 +15,14 @@ from std_msgs.msg import Float64, Int32, String
 
 from std_msgs.msg import ColorRGBA
 
+# Simulation node extends the ROS node class. It is the single object that manages all publishers and subscribers for the networked robot and local simulation.
+
 class SimulationNode(Node):
 
     def __init__(self):
 
         
-        rId = random.randint(0, 99999)
+        rId = random.randint(0, 999999)
         pubName = f'SimulationNode{rId}'
         
         super().__init__(pubName)

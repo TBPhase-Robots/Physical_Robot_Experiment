@@ -8,6 +8,8 @@ from rclpy.node import Node
 from std_msgs.msg import Float64
 
 
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
+
 class FloatPublisher(Node):
 
     def __init__(self, topic_name, robotId):

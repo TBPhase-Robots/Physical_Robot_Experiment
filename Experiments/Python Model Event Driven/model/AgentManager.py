@@ -22,6 +22,7 @@ from model.Listener import Listener
 
 from geometry_msgs.msg import Pose
 
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 
 # Enable an agent 
 def EnableAgentCallback(self, msg):

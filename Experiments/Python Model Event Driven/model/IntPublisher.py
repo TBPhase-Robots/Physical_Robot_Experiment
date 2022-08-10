@@ -8,6 +8,7 @@ from rclpy.node import Node
 from std_msgs.msg import Int32
 import random
 
+# DEPRECATED FILE, SIMULATION NODE IS NOW USED
 class IntPublisher(Node):
 
     def __init__(self, topic_name):

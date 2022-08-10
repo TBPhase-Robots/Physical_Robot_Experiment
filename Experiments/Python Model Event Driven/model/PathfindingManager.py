@@ -39,6 +39,8 @@ from pathfinding.finder.dijkstra import DijkstraFinder
 
 class PathfindingManager():
 
+    # Pathfinding manager is the object responsible for calculating agent paths during the setup phases between each trial.
+
     def __init__(self, screen, cfg):
         print("pathfinding engage")
 
@@ -54,17 +56,19 @@ class PathfindingManager():
         self.screen = screen 
         self.worldMatrix = [0,1]
 
+    # Takes a pair of screenspace coordinates and a pair of tile coordinates (pathfinding space). Returns true if the screen coordinates are inside the tile, otherwise returns false
     def IsInTile(self, screenCoordinates, tileCoordinates):
 
         tileTopLeft_x = int(self.pathFindingGridSquareWidth * tileCoordinates[1])
         tileTopLeft_y = int(self.pathFindingGridSquareHeight * tileCoordinates[0])
 
         if(screenCoordinates[0] > tileTopLeft_x and screenCoordinates[0] < tileTopLeft_x+self.pathFindingGridSquareWidth  and screenCoordinates[1] > tileTopLeft_y and screenCoordinates[1] < tileTopLeft_y + self.pathFindingGridSquareHeight):
-            #print("tile occupied by fat agent: " , tileCoordinates)
             return True
         else:
             return False
 
+    # Takes a pair of screen coordinates and returns a pair of pathfinding coordinates
+    # It's worth remembering that the returned value is in format [x,y], but the pathfinding matrix addresses elements [y,x]
     def ConvertScreenPosToPathFindingPos(self, pos):
         print("ConvertScreenPosToPathFindingPos")
         pathFindingPosX = int(pos[0] / self.pathFindingGridSquareWidth)
@@ -75,6 +79,8 @@ class PathfindingManager():
         return [pathFindingPosX, pathFindingPosY]
 
 
+    # Takes a list of target positions for a group of agents, an agent role, and all other registered agents
+    # Any agents without the specified role that are in the way are added to a list and returned
     def GetAgentsInTheWay(self, targetPositions, agentRole, agents):
         robotsInTheWay = []
         for pos in targetPositions:
@@ -87,7 +93,9 @@ class PathfindingManager():
 
         return robotsInTheWay    
 
-
+    # Sequential pathfinding step for setting up agents between trials
+    # Sequential pathfinding avoids problems of multi agent collision detection but is slower overall
+    # Takes the pathfinding id of a subject agent (the agent currently moving), a list of other agents that are waiting to move/have moved, a list of all agents in the simulation, config file, a callback to the FollowPathDecision function in runSimulation.py, and the current position of all agents
     def SequentialPathfindingStep(self, pathfindingAgentId, movingAgents, allAgents, cfg, FollowPathDecision, agentPositions):
         agents = []
         currentAgentId = 0
@@ -110,6 +118,18 @@ class PathfindingManager():
         return pathfindingAgentId
 
 
+    # Generates a x*y matrix describing the current simualtion space. The matrix is usually of considerably lower resolution than pixel space
+    # x and y of the matrix are defined by:
+    # self.pathFindingWidth = cfg['path_finding_width']
+    # self.pathFindingHeight = cfg['path_finding_height']
+    # ^ defined in config file and set in __init()__ method upon object instantiation
+
+    # Returns the resulting matrix and also sets it as the locally stored matrix variable attached to self.
+    # Empty tiles in the matrix are defined as +1, obstacles are defined as -1
+
+    # The world matrix is addressed in [y,x] format, as opposed to (x,y)
+
+    # Takes a concatenated list of agent groups, as well as a list of endpoints
     def GenerateWorldMatrix(self, stationaryAgentsTuple, endPoints):
 
         stationaryAgents = []
@@ -118,8 +138,6 @@ class PathfindingManager():
                 stationaryAgents.append(agent)
 
         np.set_printoptions(threshold=np.inf)
-
-       # print("generating world")
 
         # generate numpy matrix
         worldMatrix = np.ones((self.pathFindingWorld_y ,self.pathFindingWorld_x ), dtype=float)
@@ -152,7 +170,6 @@ class PathfindingManager():
                             screenLeft = np.array([agent.position[0] - agentRadius*1.4, agent.position[1]])
                             screenRight = np.array([agent.position[0] + agentRadius*1.4, agent.position[1]])
 
-                        # diagLength = math.sqrt(diagLength * np.diag)
 
                             screenUpRight = np.array([agent.position[0] + agentRadius, agent.position[1] - agentRadius])
 
@@ -204,10 +221,13 @@ class PathfindingManager():
 
     #def FindNearestEmptyTile(self, agent, )
 
+
+    # Unimplemented function
     def UpdatePositionOnWorldMatrix(self, agent):
         print("UpdatePositionOnWorldMatrix")
 
-        
+
+    # Findpath takes an agent and a screen space target position [x,y] and returns a list of points in world space describing the path to its target with respect to the last computed worldMatrix   
     def FindPath(self, agent, targetPos):
         # convert agent position in screen space to pathfinding space
 
