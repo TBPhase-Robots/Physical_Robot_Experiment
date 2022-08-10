@@ -55,6 +55,9 @@ agents = pygame.sprite.Group()
 
 config_name = 'defaultConfig'
 rclpy.init(args=None)
+# Define the simulation node globally
+# The simulation node is a single object with the responsibility of managing all ROS publishers and subscribers. It provides the interface to create new topic when needed.
+# Only the single simulation node needs to be polled when looking out for new messages
 simulationNode = SimulationNode()
 
 # Configuration file loaded in as global reference:
@@ -496,10 +499,15 @@ def main(show_empowerment=False):
 
         DrawWorld(cfg=cfg)
 
+
+        # The simulation node is a single object with the responsibility of managing all ROS publishers and subscribers. It provides the interface to create new topic when needed.
+        # Only the single simulation node needs to be polled when looking out for new messages
+        # -- Poll the simulation node:
         rclpy.spin_once(simulationNode, timeout_sec=0.1)
 
-        # draw world
-
+        
+        # If there have been no changes of state in the last execution step as detected by the camera and sent via ROS
+        # postedUpdates is incremented by agent position callbacks
         if(postedUpdates > 0):
             sendUpdates = True
             postedUpdates = 0
@@ -507,8 +515,11 @@ def main(show_empowerment=False):
             sendUpdates = False
 
         # if we have recieved an update from one of the agents, then proceed with simulation
+        # cfg['event_driven'] is the flag that should be set to true when running the experiment with real robots
+        # Only execute the state machine loop if we are running locally or if there is a new detected real world state
         if(sendUpdates or not cfg['event_driven']):
 
+            # ===================================== SETUP START==============================#
             if(state == "setup_start"):
 
                 # we assume all agents are in standby position. Set all agents to standby:
@@ -578,6 +589,8 @@ def main(show_empowerment=False):
                 state = "sheep_setup_loop"
                 pathfindingAgentId = 0
 
+
+            # ===================================== SHEEP SETUP LOOP ===============================#
             if(state == "sheep_setup_loop"):
 
                 # get the list of positions for sheep to move to
@@ -592,6 +605,7 @@ def main(show_empowerment=False):
                         FollowPathDecision(
                             agent=sheep, path=sheep.path, cfg=cfg)
 
+            # ===================================== DOG SETUP START ===============================#
             if(state == "dog_setup_start"):
 
                 i = 0
@@ -608,6 +622,7 @@ def main(show_empowerment=False):
                 state = "dog_setup_loop"
                 pathfindingAgentId = 0
 
+            # ===================================== DOG SETUP LOOP ===============================#
             if(state == "dog_setup_loop"):
 
                 if(cfg['sequential_pathfinding']):
@@ -617,6 +632,7 @@ def main(show_empowerment=False):
                     for dog in pack:
                         FollowPathDecision(agent=dog, path=dog.path, cfg=cfg)
 
+            # ===================================== PIG SETUP START ===============================#
             if(state == "pig_setup_start"):
                 i = 0
                 stationaryAgents = [flock, standby, pack]
@@ -631,7 +647,7 @@ def main(show_empowerment=False):
 
                 state = "pig_setup_loop"
                 pathfindingAgentId = 0
-
+            # ===================================== PIG SETUP LOOP ===============================#
             if(state == "pig_setup_loop"):
                 if(cfg['sequential_pathfinding']):
                     pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
@@ -639,7 +655,7 @@ def main(show_empowerment=False):
                 else:
                     for pig in pigs:
                         FollowPathDecision(agent=pig, path=pig.path, cfg=cfg)
-
+            # ===================================== STANDBY SETUP START ===============================#
             if(state == "standby_setup_start"):
                 i = 0
                 standbyPositions = cfg['standby_positions']
@@ -653,11 +669,12 @@ def main(show_empowerment=False):
 
                 state = "standby_setup_loop"
                 pathfindingAgentId = 0
-
+            # ===================================== STANDBY SETUP LOOP ===============================#
             if(state == "standby_setup_loop"):
                 for agent in standby:
                     FollowPathDecision(agent=agent, path=agent.path, cfg=cfg)
-
+            
+            # ===================================== EXPERIMENT ===============================#
             elif(state == "experiment"):
                 ExperimentUpdateTimestep(pack=pack, flock=flock,  cfg=cfg)
                 StandbySetupUpdateTimestep(agents=standby, cfg=cfg)
@@ -671,7 +688,7 @@ def main(show_empowerment=False):
             for agent in agents:
                 agent.DrawSelf(screen)
 
-        # pygame.display.update()
+        # Redraw the pygame display
         pygame.display.flip()
 
 
