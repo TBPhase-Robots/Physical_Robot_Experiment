@@ -9,7 +9,7 @@ from rclpy.node import Node
 from model.Publisher import Publisher
 from model.IntPublisher import IntPublisher
 from std_msgs.msg import String
-class Window(Frame):
+class StateController(Frame):
 
 
 # State Controller is the separate standalone script that is used to send commands to runSimulation over ROS.

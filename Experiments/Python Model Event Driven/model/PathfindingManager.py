@@ -227,8 +227,11 @@ class PathfindingManager():
         print("UpdatePositionOnWorldMatrix")
 
 
-    # Findpath takes an agent and a screen space target position [x,y] and returns a list of points in world space describing the path to its target with respect to the last computed worldMatrix   
+   
     def FindPath(self, agent, targetPos):
+
+        """ Findpath takes an agent and a screen space target position [x,y] and returns a list of points in world space describing the path to its target with respect to the last computed worldMatrix"""   
+
         # convert agent position in screen space to pathfinding space
 
         agentPos = agent.position
