@@ -57,6 +57,8 @@ config_name = 'defaultConfig'
 rclpy.init(args=None)
 simulationNode = SimulationNode()
 
+# Configuration file loaded in as global reference:
+
 cfg = 0
 with open(f"experiment_config_files/{config_name}.json") as json_file:
     cfg = json.load(json_file)
@@ -90,10 +92,8 @@ def SetConfigCallback(data):
 def ControllerCallback(data):
     global postedUpdates
     postedUpdates += 1
-   # print("topic contents:")
-   # print(data)
 
-
+# dispatch callback used whenever a command is sent via ROS on the dispatch channel to turn agents from standby to dogs.
 def DispatchCallback(data):
     print("DispatchCallback")
     print(data.data)
@@ -133,7 +133,7 @@ def CommandListenerCallback(data):
     else:
         state = data.data
 
-
+# Calculates voronoi partition for current flock/pack behaviour
 def calc_voronoi_partitioning(flock, pack):
     for dog in pack:
         dog.empty_sub_flock()
@@ -149,6 +149,7 @@ def calc_voronoi_partitioning(flock, pack):
 # end function
 
 
+# Add agent function registers an agent within the simulation environment, with specified ID
 def add_agent(agents, position, cfg, id, screen, simulationNode):
     agent = Agent(position=position, id=id, cfg=cfg, rotation=0.0, poseAgentCallback=ControllerCallback,
                   role="agent", screen=screen, simulationNode=simulationNode)
@@ -159,7 +160,7 @@ def add_agent(agents, position, cfg, id, screen, simulationNode):
     # agent.role = 'agent'
     return id + 1
 
-
+# Called whenever the command to add a new agent is recieved. Message contains ID of specified agent. Chooses a random location, then calls add_agent with specified location and ID.
 def add_agent_callback(msg):
     global agents
 
@@ -172,7 +173,9 @@ def add_agent_callback(msg):
     add_agent(agents=agents, position=np.array(
         [randx, randy]), cfg=cfg, id=new_id, screen=screen, simulationNode=simulationNode)
 
-
+#Draws the statis componments of the world
+# This includes background, target area, and soft play area
+# Agent start positions are drawn as small dots
 def DrawWorld(cfg):
     screen.fill(colours.DGREY)
     pygame.draw.rect(screen, colours.GREY, pygame.Rect(
@@ -213,21 +216,22 @@ def ExperimentUpdateTimestep(pack, flock, cfg):
 
             sheep.SimulationUpdate_Sheep(screen, flock, pack, agents, cfg)
 
-
+# Function repeatedly called to decide if an agent should move to a destination, or if it already has reached destination.
+# Calls MoveToPoint on agent if displacement from target is greater than threshold, otherwise  HaltAgent is called.
+# HaltAgent sends a command to physical robot to stop moving
 def MoveToPointDecision(agent: Agent, movePos, cfg):
-    #print(f'deciding to moving agent {agent.id}')
     point_x = movePos[0]
     point_y = movePos[1]
     agentPos = np.array([agent.position[0], agent.position[1]])
+    # TODO - Set distance to a variable in the cfg file instead of a magic number
     if(np.linalg.norm(movePos - agentPos) > 85):
-       # print(f'moving agent {agent.id}')
         agent.MoveToPoint(point_x=point_x, point_y=point_y,
                           screen=screen, agents=agents, cfg=cfg)
     else:
-        #print(f'halting agent {agent.id}')
         agent.HaltAgent(screen=screen)
 
-
+# Extended version of MoveTpPointDecision. Takes a list of destinations and moves agent towards each in order. Stops and returns 1 when finished path.
+# Path is usually defined by points calculated with the pathfinding feature.
 def FollowPathDecision(agent: Agent, path, cfg):
 
     pathFindingTileRadius = cfg['world_width'] / cfg['path_finding_width']
@@ -257,7 +261,7 @@ def FollowPathDecision(agent: Agent, path, cfg):
 
     return 0
 
-
+# Function moves all agents tagged standby directly to a unique standby position
 def StandbySetupUpdateTimestep(agents, cfg):
     # make all agents go to top
     standbyPositions = cfg['standby_positions']
@@ -269,12 +273,12 @@ def StandbySetupUpdateTimestep(agents, cfg):
         movePos = np.array(point)
         MoveToPointDecision(agent=agent, movePos=movePos, cfg=cfg)
 
-
+# Set the role tag of all agents to standby
 def SetAllAgentRolesToStandby():
     for agent in agents:
         agent.role = "standby"
 
-
+# Empty pack, flock, pigs, and standby groups. Resort all agents defined in group Agents into these groups defined by their role tag
 def SortAgentsByRole():
     # get maximum robot speeds and transmit
     global robot_dog_speed
@@ -354,7 +358,7 @@ def isInRectangle(centerX, centerY, radius, x, y):
 
 # test if coordinate (x, y) is within a radius from coordinate (center_x, center_y)
 
-
+# Function used to determine if a user's mouse click is inside one of the agents. Used in the process of user manually removing an agent
 def isPointInCircle(centerX, centerY, radius, x, y):
     if(isInRectangle(centerX, centerY, radius, x, y)):
         dx = centerX - x
@@ -366,7 +370,7 @@ def isPointInCircle(centerX, centerY, radius, x, y):
         return distanceSquared <= radiusSquared
     return False
 
-
+# Removes an agent by ID. Sends the ID of the deleted agent to the agentRemovalRequest topic
 def RemoveAgent(agent, agentRemovalRequestPublisher):
     print("removing agent ", agent.id)
     msg = Int32()
@@ -412,17 +416,25 @@ def main(show_empowerment=False):
     screen = pygame.display.set_mode(
         [cfg['world_width'] + 80, cfg['world_height']])
 
+    # Instantiate the Pathfinding manager
+    # The Pathfinding manager is responsible for creating an x*y pathfinding matrix for resetting agent positions between trials
     pathfindingManager = PathfindingManager(screen, cfg)
-
-    # when we start up the simulation, everything should be normalised to a 900 board
 
     agent_id = 0
 
+    # Topic names
+
+    # Change state machine state
     commandListenerTopicName = "/controller/command"
+    # Dispatch standby to dog and vice versa
     dispatchListenerTopicName = "/controller/dispatch"
+    # Add new agent to simulation
     agentListenerTopicName = "/global/robots/added"
+    # Change configuration file by name
     jsonListenerTopicName = "/controller/config"
+    # Request queue to remove agent from camera and server after rmoving from simulation
     agentRemovalPublisherTopicName = "/global/agents/removal_requests"
+    # Remove agent by ID from simulation
     killListenerTopicName = "/controller/command"
 
     # define the state command listener:
@@ -453,12 +465,15 @@ def main(show_empowerment=False):
 
     pathfindingAgentId = 0
 
+    
+    # Main Loop
     while (not end_game):
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
 
+            # If the user right clicks on an agent, remove it from simulation
             if(event.type == pygame.MOUSEBUTTONDOWN):
                 if(event.button == 3):
 
@@ -482,13 +497,6 @@ def main(show_empowerment=False):
         DrawWorld(cfg=cfg)
 
         rclpy.spin_once(simulationNode, timeout_sec=0.1)
-
-        # look out for commands send to this script
-        #rclpy.spin_once(commandListener, timeout_sec=0.01)
-        # check if user wants to dispatch/recall dogs
-        #rclpy.spin_once(dispatchListener, timeout_sec=0.01)
-        # check if we have add/remove agents
-        #rclpy.spin_once(agentListener, timeout_sec=0.01)
 
         # draw world
 
