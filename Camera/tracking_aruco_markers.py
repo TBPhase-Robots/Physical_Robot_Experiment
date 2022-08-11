@@ -63,6 +63,15 @@ class ArucoTrack(Node):
         
         self.middles = []
 
+        self.arena_corners_pubs = []
+
+        for i in range(100, 104):
+            pub = self.create_publisher(Pose, f"arena_corners_{i}", 10)
+            self.arena_corners_pubs.append(pub)
+            
+
+        
+
         # rclpy.Context.on_shutdown(super().context, self.shutdown_callback)
 
         # imput camera values
@@ -230,15 +239,19 @@ class ArucoTrack(Node):
 
             positions = Pose()
 
+            id = pos[0]
             positions.position.x = pos[1] # could potentially be an earlier maths error, but just this works
             positions.position.y = pos[2]
             positions.orientation.z = pos[3]
 
-            try: # see if there is a publishable node for that ID number
-                self.pub_dict[pos[0]].publish(positions)
+            if (id < 100 or id > 103):
+                try: # see if there is a publishable node for that ID number
+                    self.pub_dict[id].publish(positions)
 
-            except KeyError : # if the key doesn't exist than a new publisher with that key is created.
-                self.logger.warn(f'No publisher for robot{pos[0]}')
+                except KeyError : # if the key doesn't exist than a new publisher with that key is created.
+                    self.logger.warn(f'No publisher for robot{id}')
+            else:
+                self.arena_corners_pubs[id - 100].publish(positions)
 
             # middle = Pose()
 

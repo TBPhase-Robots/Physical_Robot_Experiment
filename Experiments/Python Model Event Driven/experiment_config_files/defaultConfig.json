@@ -10,6 +10,7 @@
     "path_finding_width" : 50,
     "path_finding_height" : 30,
 
+    "use_arena_corner_markers" : true,
 
     "show_empowerment" : true,
 

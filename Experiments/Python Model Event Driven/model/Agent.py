@@ -369,7 +369,46 @@ class Agent(pygame.sprite.Sprite):
             pygame.draw.line(screen, colours.BLACK, self.position, np.add(self.position, np.array(moveForce)) ,4)
 
 
+    def calc_boundary_force(self, x, y, cfg):
+        outOfBounds = False
+        boundaryForce = np.zeros([2])
 
+        playAreaLeftBound = cfg['play_area_x']
+        playAreaTopBound = cfg['play_area_y']
+
+        playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
+        playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
+
+        if 'corner_points' in cfg:
+            r = 0
+            edge_top = cfg['corner_points'][1] - cfg['corner_points'][0]
+            if np.cross([x - cfg['corner_points'][0][0], y - cfg['corner_points'][0][1], 0], [edge_top[0], edge_top[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_top[1], edge_top[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_right = cfg['corner_points'][2] - cfg['corner_points'][1]
+            if np.cross([x - cfg['corner_points'][1][0], y - cfg['corner_points'][1][1], 0], [edge_right[0], edge_right[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_right[1], edge_right[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_bottom = cfg['corner_points'][3] - cfg['corner_points'][2]
+            if np.cross([x - cfg['corner_points'][2][0], y - cfg['corner_points'][2][1], 0], [edge_bottom[0], edge_bottom[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_bottom[1], edge_bottom[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_left = cfg['corner_points'][0] - cfg['corner_points'][3]
+            if np.cross([x - cfg['corner_points'][3][0], y - cfg['corner_points'][3][1], 0], [edge_left[0], edge_left[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_left[1], edge_left[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            # print(cfg['corner_points'])
+
+
+        return boundaryForce, outOfBounds
 
     # Function describes all normal dog behaviour for the agent
     # Called by runSimulation.py when in experiment state
@@ -433,31 +472,9 @@ class Agent(pygame.sprite.Sprite):
         # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
         x = self.position[0]
         y = self.position[1]
-        playAreaLeftBound = cfg['play_area_x']
-        playAreaTopBound = cfg['play_area_y']
 
-        playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
-        playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
         outOfBounds = False
-        boundaryForce = np.array([0.0,0.0])
-        # if outside of the play area, add a force
-        r = random.uniform(-1, 1)
-        if(x < playAreaLeftBound):
-            outOfBounds = True
-            boundaryForce += np.array([2.0,r])
-            #print("agent too left at position ", x, y)
-        if(x > playAreaRightBound):
-            outOfBounds = True
-            boundaryForce += np.array([-2.0, r])
-            #print("agent too right at position ", x, y)
-        if(y < playAreaTopBound):
-            outOfBounds = True
-            #print("agent too high at position ", x, y)
-            boundaryForce += np.array([r, 2.0])
-        if( y > playAreaBottomBound):
-            outOfBounds = True
-            #print("agent too low at position ", x, y)
-            boundaryForce += np.array([r, -2.0])
+        boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
 
         # if outside of the play area, add an overwhelming force to return back inside it
         F = np.add(boundaryForce*40, F)
@@ -739,27 +756,8 @@ class Agent(pygame.sprite.Sprite):
 
                 playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
                 playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-                outOfBounds = False
-                boundaryForce = np.array([0.0,0.0])
-                # if outside of the play area, add a force
-                r = random.uniform(-1, 1)
-                if(x < playAreaLeftBound):
-                    outOfBounds = True
-                    boundaryForce += np.array([2.0,r])
-                    #print("agent too left at position ", x, y)
-                if(x > playAreaRightBound):
-                    outOfBounds = True
-                    boundaryForce += np.array([-2.0, r])
-                    #print("agent too right at position ", x, y)
-                if(y < playAreaTopBound):
-                    outOfBounds = True
-                    #print("agent too high at position ", x, y)
-                    boundaryForce += np.array([r, 2.0])
-                if( y > playAreaBottomBound):
-                    outOfBounds = True
-                    #print("agent too low at position ", x, y)
-                    boundaryForce += np.array([r, -2.0])
-
+                boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+                
                 # if outside of the play area, add an overwhelming force to return back inside it
                 F = np.add(boundaryForce*40, F)
 
@@ -817,31 +815,10 @@ class Agent(pygame.sprite.Sprite):
             # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
             x = self.position[0]
             y = self.position[1]
-            playAreaLeftBound = cfg['play_area_x']
-            playAreaTopBound = cfg['play_area_y']
-
-            playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
-            playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-            outOfBounds = False
-            boundaryForce = np.array([0.0,0.0])
+            
+            boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
             # if outside of the play area, add a force
-            r = random.uniform(-1, 1)
-            if(x < playAreaLeftBound):
-                outOfBounds = True
-                boundaryForce += np.array([2.0,r])
-                print("agent too left at position ", x, y)
-            if(x > playAreaRightBound):
-                outOfBounds = True
-                boundaryForce += np.array([-2.0, r])
-                print("agent too right at position ", x, y)
-            if(y < playAreaTopBound):
-                outOfBounds = True
-                print("agent too high at position ", x, y)
-                boundaryForce += np.array([r, 2.0])
-            if( y > playAreaBottomBound):
-                outOfBounds = True
-                print("agent too low at position ", x, y)
-                boundaryForce += np.array([r, -2.0])
+            
 
             # if outside of the play area, add an overwhelming force to return back inside it
             F = np.add(boundaryForce*40, F)

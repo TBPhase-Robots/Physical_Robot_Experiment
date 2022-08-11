@@ -10,6 +10,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
 import math
 import random
+import cv2
 from datetime import datetime
 
 import time
@@ -18,6 +19,8 @@ from ProtoInputHandler import ProtoInputHandler
 from model.Listener import Listener
 from model.CommandListener import CommandListener
 from model.AgentListener import AgentListener
+
+from model.ArenaCorner import ArenaCorner
 
 from model.SimulationNode import SimulationNode
 
@@ -51,7 +54,7 @@ flock = pygame.sprite.Group()
 pigs = pygame.sprite.Group()
 standby = pygame.sprite.Group()
 agents = pygame.sprite.Group()
-
+arena_corners = pygame.sprite.Group()
 
 config_name = 'defaultConfig'
 rclpy.init(args=None)
@@ -173,8 +176,7 @@ def add_agent_callback(msg):
 
     randx = random.uniform(50, 900)
     randy = random.uniform(50, 550)
-    add_agent(agents=agents, position=np.array(
-        [randx, randy]), cfg=cfg, id=new_id, screen=screen, simulationNode=simulationNode)
+    add_agent(agents=agents, position=np.array([randx, randy]), cfg=cfg, id=new_id, screen=screen, simulationNode=simulationNode)
 
 #Draws the statis componments of the world
 # This includes background, target area, and soft play area
@@ -187,8 +189,37 @@ def DrawWorld(cfg):
     pygame.draw.rect(screen, colours.RED, pygame.Rect(
         cfg['target_position'][0] - 100, cfg['target_position'][1] - 100, 200, 200), 3)
 
-    pygame.draw.rect(screen, colours.BLUE, pygame.Rect(
-        cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
+    if cfg['use_arena_corner_markers']:
+        arena_corners.update(screen)
+        points = []
+        non_zero_count = 0
+        for arena_corner in arena_corners:
+            points.append(arena_corner.position)
+            if (arena_corner.position[0] > 0 or arena_corner.position[1] > 0):
+                non_zero_count += 1
+        
+        if non_zero_count >= 4:
+            points.sort(key = lambda x: x[1])
+            top_points = [points[0], points[1]]
+            top_points.sort(key = lambda x: x[0])
+            bottom_points = [points[2], points[3]]
+            bottom_points.sort(key = lambda x: x[0], reverse=True)
+
+            points = top_points + bottom_points
+
+            for i in range(1, 5):
+                text_surface = my_font.render(f"{i}", False, (0, 0, 0))
+                screen.blit(text_surface, points[i-1])
+
+            cfg['corner_points'] = points
+        
+            pygame.draw.line(screen, colours.BLUE, points[0], points[1], 3)
+            pygame.draw.line(screen, colours.BLUE, points[1], points[2], 3)
+            pygame.draw.line(screen, colours.BLUE, points[2], points[3], 3)
+            pygame.draw.line(screen, colours.BLUE, points[3], points[0], 3)
+    else:
+        pygame.draw.rect(screen, colours.BLUE, pygame.Rect(
+            cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
 
     for pos in cfg['initial_sheep_positions']:
         pygame.draw.circle(screen, colours.WHITE, pos, 2)
@@ -394,7 +425,6 @@ def RemoveAgentCallback(message):
     
 #end functon
 
-
 def main(show_empowerment=False):
 
     global screen
@@ -415,6 +445,11 @@ def main(show_empowerment=False):
     end_game = False
 
     pygame.init()
+
+    pygame.font.init() # you have to call this at the start, 
+                   # if you want to use this module.
+    global my_font 
+    my_font = pygame.font.SysFont('Comic Sans MS', 30)
 
     screen = pygame.display.set_mode(
         [cfg['world_width'] + 80, cfg['world_height']])
@@ -461,6 +496,16 @@ def main(show_empowerment=False):
 
     killListener = simulationNode.create_subscription(Int32, "/global/agents/removed", RemoveAgentCallback, 10)
 
+    if (cfg['use_arena_corner_markers']):
+        arena_corners_subscribers = []
+
+        for i in range(100, 104):
+            arena_corner = ArenaCorner(i, cfg)
+            arena_corners.add(arena_corner)
+            sub = simulationNode.create_subscription(Pose, f"arena_corners_{i}", arena_corner.ArenaCornerCallback, 10)
+            arena_corners_subscribers.append(sub)
+            print(f"create subscriber arena_corners_{i}")
+
     # put all robots into standby, if any already exist for whatever reason.
     SetAllAgentRolesToStandby()
 
@@ -498,7 +543,6 @@ def main(show_empowerment=False):
                     # then remove it
 
         DrawWorld(cfg=cfg)
-
 
         # The simulation node is a single object with the responsibility of managing all ROS publishers and subscribers. It provides the interface to create new topic when needed.
         # Only the single simulation node needs to be polled when looking out for new messages
