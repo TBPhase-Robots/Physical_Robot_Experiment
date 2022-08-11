@@ -32,8 +32,8 @@ float speed;
 float force_x = 0;
 float force_y = 0;
 float goal = 0;
-float position_uncertainty = 0.3;
-float rotation_uncertainty = 0.7;
+float position_uncertainty = 0.7;
+float rotation_uncertainty = 0.9;
 float leftVel = 30;
 float rightVel = 30;
 
