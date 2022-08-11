@@ -4,11 +4,11 @@
     "play_area_x" : 25,
     "play_area_y": 25,
     "play_area_width" : 1100,
-    "play_area_height" : 690, 
+    "play_area_height" : 600, 
     "time_limit" : 5000,
 
-    "path_finding_width" : 16,
-    "path_finding_height" : 9,
+    "path_finding_width" : 50,
+    "path_finding_height" : 30,
 
 
     "show_empowerment" : true,
@@ -33,7 +33,7 @@
     "standby_positions" : [[150, 100], [350, 100], [550, 100], [750, 100], [950, 100], [150, 175], [350, 175], [550, 175], [750, 175], [950, 175]],
     "pigsty_positions" : [[50, 50], [50, 200], [50, 350], [50, 500], [75, 650]], 
 
-    "target_position" : [800, 610],
+    "target_position" : [900, 510],
 
     "agent_repulsion_from_agents" : 1.7,
 
@@ -50,7 +50,7 @@
     "grazing_movement_chance" : 0.3,
 
     "dog_forces_with_flock" : 1,
-    "dog_repulsion_from_dogs" : 5000,
+    "dog_repulsion_from_dogs" : 2,
     "dog_repulsion_from_sheep" : 1,
     "dog_attraction_to_steering_point" : 4,
     "dog_orbital_around_flock" : 8,
@@ -58,7 +58,7 @@
 
 
     "sequential_pathfinding" : true,
-    "agent_radius" : 50,
+    "agent_radius" : 60,
     
     "ticks_per_choice" : 5,
     "collection_radius" : 70,

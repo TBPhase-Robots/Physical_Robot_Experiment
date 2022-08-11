@@ -22,7 +22,7 @@ Kinematics_c kinematics;
 #define UNCERTAINTY_PACKET 2
 
 #define SPEED_SCALE (255.0 / 1.5);
-#define TURNING_MULTIPLIER 1.5;
+#define TURNING_MULTIPLIER 2;
 
 #define MAX_SPEED 0.25
 int turnDirection = 1;
@@ -33,7 +33,7 @@ float force_x = 0;
 float force_y = 0;
 float goal = 0;
 float position_uncertainty = 0.3;
-float rotation_uncertainty = 0.5;
+float rotation_uncertainty = 0.7;
 float leftVel = 30;
 float rightVel = 30;
 

@@ -323,7 +323,7 @@ class Agent(pygame.sprite.Sprite):
         # calculate repulsion force from all other agents
         F_A = np.zeros(2)
 
-        objectAvoidance = True
+        objectAvoidance = False
         i = 0
         for agent in agents:
             if (agent.id != self.id):
@@ -445,22 +445,25 @@ class Agent(pygame.sprite.Sprite):
         if(x < playAreaLeftBound):
             outOfBounds = True
             boundaryForce += np.array([2.0,r])
-            print("agent too left at position ", x, y)
+            #print("agent too left at position ", x, y)
         if(x > playAreaRightBound):
             outOfBounds = True
             boundaryForce += np.array([-2.0, r])
-            print("agent too right at position ", x, y)
+            #print("agent too right at position ", x, y)
         if(y < playAreaTopBound):
             outOfBounds = True
-            print("agent too high at position ", x, y)
+            #print("agent too high at position ", x, y)
             boundaryForce += np.array([r, 2.0])
         if( y > playAreaBottomBound):
             outOfBounds = True
-            print("agent too low at position ", x, y)
+            #print("agent too low at position ", x, y)
             boundaryForce += np.array([r, -2.0])
 
         # if outside of the play area, add an overwhelming force to return back inside it
         F = np.add(boundaryForce*40, F)
+
+        if (F_D[0] > 0 and F_D[1] > 0):
+            print(f"dog F_D: {F_D[0], F_D[1]}")
 
         if (cfg['debug_dog_forces']):
             pygame.draw.line(screen, colours.ORANGE, self.position, np.add(self.position, 10 * cfg['dog_repulsion_from_dogs'] * F_D), 8)
@@ -588,11 +591,12 @@ class Agent(pygame.sprite.Sprite):
     # calculates dog-dog repulsion force vector
     def calc_F_D_Dog(self, pack):
         F_D_D = np.zeros(2)
+        
         for dog in pack:
+            print(f"other id: {dog.id}, self id: {self.id}")
             if (dog.id != self.id):
-                if (np.array_equal(self.position, dog.position)):
                     F_D_D = np.add(F_D_D, (self.position - dog.position) / np.linalg.norm(self.position - dog.position))
-
+                    
         F_D = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
         return F_D
     #end function
@@ -742,18 +746,18 @@ class Agent(pygame.sprite.Sprite):
                 if(x < playAreaLeftBound):
                     outOfBounds = True
                     boundaryForce += np.array([2.0,r])
-                    print("agent too left at position ", x, y)
+                    #print("agent too left at position ", x, y)
                 if(x > playAreaRightBound):
                     outOfBounds = True
                     boundaryForce += np.array([-2.0, r])
-                    print("agent too right at position ", x, y)
+                    #print("agent too right at position ", x, y)
                 if(y < playAreaTopBound):
                     outOfBounds = True
-                    print("agent too high at position ", x, y)
+                    #print("agent too high at position ", x, y)
                     boundaryForce += np.array([r, 2.0])
                 if( y > playAreaBottomBound):
                     outOfBounds = True
-                    print("agent too low at position ", x, y)
+                    #print("agent too low at position ", x, y)
                     boundaryForce += np.array([r, -2.0])
 
                 # if outside of the play area, add an overwhelming force to return back inside it
