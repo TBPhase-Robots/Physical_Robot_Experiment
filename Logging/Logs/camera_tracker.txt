@@ -1,0 +1,30 @@
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+WARN: No publisher for robot0
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: removing robot: 0
+LOG: new robot: 4
+LOG: new robot: 5
+LOG: new robot: 6
+LOG: removing robot: 2
+LOG: removing robot: 4
+LOG: new robot: 8
+LOG: removing robot: 5
+LOG: removing robot: 3
+LOG: new robot: 9
+LOG: removing robot: 9
+LOG: removing robot: 6
+LOG: removing robot: 1
+LOG: removing robot: 8

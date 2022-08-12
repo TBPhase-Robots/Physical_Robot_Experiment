@@ -25,13 +25,10 @@ Kinematics_c kinematics;
 #define TURNING_MULTIPLIER 2;
 
 #define MAX_SPEED 0.25
-int turnDirection = 1;
-
-float speed;
 
 float force_x = 0;
 float force_y = 0;
-float goal = 0;
+float goal_angle = 0;
 float position_uncertainty = 0.7;
 float rotation_uncertainty = 0.9;
 float leftVel = 30;
@@ -103,6 +100,12 @@ void i2c_sendStatus()
   Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
 }
 
+float circular_uncertainty_mean(float cam_angle, float odo_angle) {
+  float sin_sum = sin(cam_angle) * (1 - rotation_uncertainty) + sin(kinematics.currentRotationCutoff) * rotation_uncertainty;
+  float cos_sum = cos(cam_angle) * (1 - rotation_uncertainty) + cos(kinematics.currentRotationCutoff) * rotation_uncertainty;
+  return atan2(sin_sum, cos_sum);
+}
+
 // When the Core2 calls and i2c write, the robot
 // will call this function to receive the data down.
 void i2c_recvStatus(int len)
@@ -110,33 +113,30 @@ void i2c_recvStatus(int len)
   //  Read the i2c status sent by the Core2
   Wire.readBytes((byte *)&i2c_status_rx, sizeof(i2c_status_rx));
 
- // Serial.println((String) "Message recieved");
-
-  //  Set both motors to run at the speed of the status x value
-  // setLeftMotor(i2c_status_rx.x);
-  // setRightMotor(i2c_status_rx.y);
-
   if (i2c_status_rx.packet_type == FORCE_PACKET) {
+    // Recieves a force packet and sets the robots current force vector
     force_x = i2c_status_rx.x;
     force_y = i2c_status_rx.y;
 
     float angle = atan2(force_y, force_x);
-    //Serial.println((String) "Angle" + angle);
-
-    goal = angle;
+    goal_angle = angle;
   }
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
+    // Recieves a pose packet and updates the robots kinematics
+    // The greater the uncertainty the less the kinematics are changed
     kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
     kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
-    kinematics.currentRotationCutoff = i2c_status_rx.theta * (1 - rotation_uncertainty) + kinematics.currentRotationCutoff * rotation_uncertainty;
+    kinematics.currentRotationCutoff = circular_uncertainty_mean(i2c_status_rx.theta, kinematics.currentRotationCutoff);
   }
   else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
+    // Recieves an uncertanty packet and sets the robot's uncertainties
     position_uncertainty = i2c_status_rx.x;
     rotation_uncertainty = i2c_status_rx.theta;
   }
 
 }
 
+// Reads the battery voltage
 inline uint16_t readBatteryMillivolts()
  {
      const uint8_t sampleCount = 8;
@@ -156,17 +156,26 @@ inline uint16_t readBatteryMillivolts()
 
 int battery_millivolts;
 
-void setup()
-{
+void warning_beep() {
+  tone(6, 1000);
+  delay(200);
+  tone(6, 1500);
+  delay(200);
+  noTone(6);
+  delay(300);
+}
+
+// Checks for low battery
+void check_battery() {
   battery_millivolts = readBatteryMillivolts();
   if (battery_millivolts / 4 < 700 && battery_millivolts > 20) {
-    tone(6, 1000);
-    delay(200);
-    tone(6, 1500);
-    delay(200);
-    noTone(6);
-    delay(300);
+    warning_beep();
   }
+}
+
+void setup()
+{
+  check_battery();
   
   //  Sets up motor output pins
   pinMode(L_DIR_PIN, OUTPUT);
@@ -197,27 +206,7 @@ void setup()
   Wire.onRequest(i2c_sendStatus);
   Wire.onReceive(i2c_recvStatus);
 
-  goal = 0.0;
-}
-
-void set_z_rotation(float vel)
-{
-  if (vel == 0) {
-    setLeftMotor(0);
-    setRightMotor(0);
-  }
-  else if (vel * 30 < 22 && vel > 0) {
-    setLeftMotor(-22.0);
-    setRightMotor(22.0);
-  }
-  else if (vel * 30 > -22 && vel < 0) {
-    setLeftMotor(22.0);
-    setRightMotor(-22.0);
-  }
-  else {
-    setLeftMotor(-vel * 30);
-    setRightMotor(vel * 30);
-  }
+  goal_angle = 0.0;
 }
 
 void go_forward(float vel)
@@ -228,6 +217,7 @@ void go_forward(float vel)
   rightVel = vel ;
 }
 
+// Sets value to be between -pi and pi 
 float between_pi(float angle) {
   while (abs(angle) > PI) {
     if (angle > 0) {
@@ -241,68 +231,90 @@ float between_pi(float angle) {
   return angle;
 }
 
-int batteryTS = 0;
-int currentTS = 0;
+int last_check_time = 0;
+int current_time = 0;
 
-void loop() {
-  float theta = kinematics.currentRotationCutoff; 
-  float error = (goal - theta);
-  float newGoal = goal;
-  float max_speed = MAX_SPEED;
-
-  currentTS = millis();
-  if (currentTS - batteryTS > 20000) {
-    battery_millivolts = readBatteryMillivolts();
-    if (battery_millivolts / 4 < 700 && battery_millivolts > 20) {
-      tone(6, 1000);
-      delay(200);
-      tone(6, 1500);
-      delay(200);
-      noTone(6);
-      delay(300);
-    }
-    batteryTS = millis();
+//  Prevents the 3pi motors from stalling (they don't like pwm values of less than 20)
+int min_pwm(int pwm) {
+  if (abs(pwm) < 20) {
+    return 0;
   }
 
-  theta = between_pi(theta);
-  error = between_pi(error);
-
-  if (abs(error) > PI / 2) {
-    if (goal > 0) {
-      newGoal = goal - PI;
+  if (abs(pwm) < 25) {
+    if (pwm > 0) {
+      pwm = 25;
     }
     else {
-      newGoal = goal + PI;
+      pwm = -25;
     }
+  }
+
+  return pwm;
+}
+
+void loop() {
+  float current_angle = kinematics.currentRotationCutoff; 
+  float newGoal = goal_angle;
+  float max_speed = MAX_SPEED;
+  float speed = 0;
+
+  // Error is difference between current and goal angles
+  float turn_error = (goal_angle - current_angle);
+
+  // Turn direction is not inverted by default
+  int turnDirection = 1;
+
+  // Check battery level every 20s
+  current_time = millis();
+  if (current_time - last_check_time > 20000) {
+    check_battery();
+    last_check_time = millis();
+  }
+
+  current_angle = between_pi(current_angle);
+  turn_error = between_pi(turn_error);
+
+  // If error is more than a quarter turn put robot into reverse
+  if (abs(turn_error) > PI / 2) {
+    // goal angle is a half rotation away from the actual goal when reversing
+    if (goal_angle > 0) {
+      newGoal = goal_angle - PI;
+    }
+    else {
+      newGoal = goal_angle + PI;
+    }
+
+    // Speed is negative when reversing
     max_speed = -MAX_SPEED;
     speed = -sqrt(force_x * force_x + force_y * force_y);
-    //Serial.println((String) "goal set as " + goal);
+
+    // Turn direction is inverted when reversing
     turnDirection = -1;
   }
   else {
+
+    // Set speed to the magnitude of the force vector
     speed = sqrt(force_x * force_x + force_y * force_y);
-    turnDirection = 1;
   }
 
-  error = (newGoal - theta) * turnDirection; // recheck error
-  error = between_pi(error);
+  turn_error = (newGoal - current_angle) * turnDirection; // recheck turn_error
+  turn_error = between_pi(turn_error);
 
+  // Only move if force is not close to 0
   if (force_x * force_x + force_y * force_y > 0.001) {
+    // Dont move at more than max speed
     if (abs(speed) > abs(max_speed)) {
       speed = max_speed;
     }
-    speed *= SPEED_SCALE;
-    if (abs(speed) < 25.0) {
-      if (speed > 0) {
-        speed=25.0;
-      }
-      else {
-        speed=-25.0;
-      }
-    }
 
-    if (abs(error) > 0.2) {
-      float scaled_error = error * TURNING_MULTIPLIER;
+    // Convert speed from metres per second to pwm values
+    speed *= SPEED_SCALE;
+
+    // Turn if error is too large
+    if (abs(turn_error) > 0.2) {
+
+      // Increase error by turning multiplier, for sharper turns
+      float scaled_error = turn_error * TURNING_MULTIPLIER;
       if (scaled_error > PI) {
         scaled_error = PI;
       }
@@ -310,32 +322,30 @@ void loop() {
         scaled_error = -PI;
       }
 
-      if (error > 0) {
+      if (turn_error > 0) {
+        // Slow down left wheel when turning left
         leftVel = speed * cos(scaled_error);
         rightVel = speed;
       }
       else {
-        // you need to turn anticlockwise, need to increase right wheel 
+        // Slow down right wheel when turning right
         leftVel = speed;
         rightVel = speed * cos(scaled_error);
       }
-      setLeftMotor(leftVel);
-      setRightMotor(rightVel);
+
+      setLeftMotor(min_pwm(leftVel));
+      setRightMotor(min_pwm(rightVel));
     }
     else {
-      go_forward(speed);
+      go_forward(min_pwm(speed));
     }
   }
   else {
     go_forward(0);
   }
 
-  //Serial.println((String) "Error: " + error);
-  //Serial.println((String) "Desired angle: " + goal);
-  //Serial.println((String) "Angle of robot:" + theta);
-
+  // Check encoders to get new x, y and angle
   kinematics.updateLoop();
-  // delay(1);
 }
 
 void printRXStatus()

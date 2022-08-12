@@ -127,19 +127,20 @@ void error_loop(){
   }
 }
 
-//  Draws a thingy marker to the screen
+//  Draws an aruco marker to the screen
 void drawMarker(u_int64_t data, uint32_t background) {
   M5.lcd.clear();
 
   int size = HEIGHT / 10;
   int side_inset = (WIDTH - HEIGHT) / 2;
 
+  // Draw borders in the background colour
   M5.lcd.fillRect(0, 0, WIDTH, size, background);
   M5.lcd.fillRect(0, 0, size + side_inset, HEIGHT, background);
-
   M5.lcd.fillRect(0, HEIGHT - size, WIDTH, size, background);
   M5.lcd.fillRect(WIDTH - size - side_inset, 0, size + side_inset, HEIGHT, background);
 
+  // Read the binary encoding of the marker and draw it to the screen
   for (u_int64_t i = 0; i < 36; i++) {
     bool white = (data & ((u_int64_t)1 << i)) != 0;
 
@@ -150,6 +151,7 @@ void drawMarker(u_int64_t data, uint32_t background) {
     }
   }
 
+  // Print the robot id
   char s[32]; 
   sprintf(s, "%d", id);
   M5.lcd.drawString(s, 0, 0);
@@ -176,12 +178,10 @@ void vector_callback(const void * msgin)
   timer_calls_without_vector = 0;
 }
 
-bool first_pose = true;
-
-// Handles vector messages recieved from a ROS subscription
+// Handles camera pose messages recieved from a ROS subscription
 void camera_pose_callback(const void * msgin)
 {
-  //  Cast received message to vector
+  //  Cast received message to pose
   const geometry_msgs__msg__Pose * msg = (const geometry_msgs__msg__Pose *)msgin;
 
   //  Converts message to i2c_status
@@ -192,16 +192,12 @@ void camera_pose_callback(const void * msgin)
   i2c_status_tx.packet_type = POSE_PACKET;
 
   //  Sends i2c_status to the 3Pi
-  // if (first_pose) {
   Wire.beginTransmission(ROBOT_I2C_ADDR);
   Wire.write((uint8_t*)&i2c_status_tx, sizeof(i2c_status_tx));
   Wire.endTransmission();
-  first_pose = false;
-  // }
-
 }
 
-// Handles vector messages recieved from a ROS subscription
+// Handles uncertainty messages recieved from a ROS subscription
 void uncertainty_callback(const void * msgin)
 {
   //  Cast received message to vector
@@ -223,40 +219,51 @@ void uncertainty_callback(const void * msgin)
 // Handles marker messages recieved from a ROS subscription
 void marker_callback(const void * msgin)
 {
-  //  Cast received message to int
+  // Cast received message to int
   const std_msgs__msg__Int64 * msg = (const std_msgs__msg__Int64 *)msgin;
 
+  // Sets the marker to the recieved value
   marker = msg->data;
 
   //  Draws the marker to the screen
   drawMarker(marker, colour);
 }
 
+// Handles id messages
 void id_callback(const void * msgin) {
+  //  Cast received message to int
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
 
+  // Sets the id to the recieved value
   id = msg->data;
 
+  // Prints acknowledgement of the id
   char s[32];
   sprintf(s, "Received id: %d", id);
   Serial.println(s);
   M5.lcd.println(s);
 }
 
+// Handles colour messages
 void colour_callback(const void * msgin) {
+  //  Cast received message to colour
   const std_msgs__msg__ColorRGBA * msg = (const std_msgs__msg__ColorRGBA *)msgin;
 
+  // Converts colour floats (0 - 1) to bytes (0 - 255)
   uint32_t r = 255 * msg->r;
   uint32_t g = 255 * msg->g;
   uint32_t b = 255 * msg->b;
 
-  // colour = COLOUR(r, g, b);
+  // Sets the colour
   colour = M5.lcd.color565(r, g, b);
 
+  // Redraws the marker with the new background colour
   drawMarker(marker, colour);
 }
 
+// Configures the robot to use its new id
 void configure_robot() {
+  //  Removes setup ros structures
   Serial.println("Removing setup ROS node.");
   RCCHECK(rclc_executor_remove_subscription(&setup_executor, &id_subscription));
   RCCHECK(rcl_publisher_fini(&register_publisher, &setup_node));
@@ -264,26 +271,27 @@ void configure_robot() {
   RCCHECK(rcl_node_fini(&setup_node));
   RCCHECK(rclc_executor_fini(&setup_executor));
 
+  // Waits because micro ros doesn't 
   delay(500);
   
   Serial.println("Initialising unique ROS node.");
 
+  //  Create a ROS node
   char node_name[32];
   sprintf(node_name, "robot%d", id);
-
-  //  Create a ROS node
   RCCHECK(rclc_node_init_default(&node, node_name, "", &support));
 
   //  Counts the number of handles (subscriptions, timers, etc) being used
   size_t handle_count = 0;
 
+  // Creates a publisher for registration
   RCCHECK(rclc_publisher_init_default(
     &register_publisher,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
     "/setup/register"));
-  handle_count++;
 
+  // Creates a publisher for heartbeats
   char heartbeat_topic_name[32];
   sprintf(heartbeat_topic_name, "/robot%d/heartbeat", id);
   RCCHECK(rclc_publisher_init_default(
@@ -291,8 +299,8 @@ void configure_robot() {
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
     heartbeat_topic_name));
-  handle_count++;
 
+  // Creates a publisher for poses
   char pose_topic_name[32];
   sprintf(pose_topic_name, "/robot%d/poses", id);
   RCCHECK(rclc_publisher_init_default(
@@ -300,7 +308,6 @@ void configure_robot() {
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Pose),
     pose_topic_name));
-  handle_count++;
 
   //  Subscribe to the vector ROS topic, using Vector3 messages
   char vector_topic_name[32];
@@ -312,7 +319,7 @@ void configure_robot() {
     vector_topic_name));
   handle_count++;
 
-  //  Subscribe to the vector ROS topic, using Vector3 messages
+  //  Subscribe to the camera poses ROS topic, using Pose messages
   char camera_pose_topic_name[32];
   sprintf(camera_pose_topic_name, "/robot%d/camera_poses", id);
   RCCHECK(rclc_subscription_init_default(
@@ -322,7 +329,7 @@ void configure_robot() {
     camera_pose_topic_name));
   handle_count++;
 
-  //  Subscribe to the vector ROS topic, using Vector3 messages
+  //  Subscribe to the uncertainty ROS topic, using Vector3 messages
   char uncertainty_topic_name[32];
   sprintf(uncertainty_topic_name, "/global/uncertainty", id);
   RCCHECK(rclc_subscription_init_default(
@@ -342,6 +349,7 @@ void configure_robot() {
     marker_topic_name));
   handle_count++;
 
+  //  Subscribe to the colour ROS topic, using colour messages
   char colour_topic_name[32];
   sprintf(colour_topic_name, "/robot%d/colours", id);
   RCCHECK(rclc_subscription_init_default(
@@ -351,6 +359,7 @@ void configure_robot() {
     colour_topic_name));
   handle_count++;
 
+  // Sets up the executor
   RCCHECK(rclc_executor_init(&executor, &support.context, handle_count, &allocator));
 
   //  Adds the vector subscription to the executor
@@ -378,10 +387,13 @@ void configure_robot() {
     &executor, &colour_subscriber, &colour_msg,
     &colour_callback, ON_NEW_DATA));
 
+  // wait because microros doesnt and will break
   delay(500);
 
+  // starts a timer to call the timer callback function at regular intervals
   timer.every(TIMER_RATE, timer_callback);
 
+  // send acknowledgement of the recieved id back to the server
   Serial.println("Sending id acknowledgement.");
   register_msg.data = id;
   RCCHECK(rcl_publish(&register_publisher, &register_msg, NULL));
@@ -399,18 +411,15 @@ void setup() {
   //  Set up wire to communicate with 3Pi
   Wire.begin();
 
-  // //  Draw checkerboard marker to the screen
-  // drawMarker(36805402480);
-
-  Serial.println("Connecting to WiFi.");
   //  Connect to micro ROS agent
+  Serial.println("Connecting to WiFi.");
   set_microros_wifi_transports("TP-Link_102C", "35811152", "192.168.0.230", 8888);
 
-  //  Wait a bit, not sure why this is needed but its in the ROS tutorial
+  //  Wait because ros doesnt work properly
   delay(500);
 
-  Serial.println("WiFi connected. Initialising setup ROS node.");
   //  Set up ROS setup stuff
+  Serial.println("WiFi connected. Initialising setup ROS node.");
   allocator = rcl_get_default_allocator();
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
 
@@ -437,6 +446,8 @@ void setup() {
     &id_callback, ON_NEW_DATA));
 
   delay(500);
+
+  // Request an id from the server
   Serial.println("ROS initialised. Requesting id.");
   register_msg.data = -1;
   RCCHECK(rcl_publish(&register_publisher, &register_msg, NULL));
@@ -455,6 +466,7 @@ bool timer_callback(void* args) {
   pose_msg.orientation.z = i2c_status_rx.theta;
   RCSOFTCHECK(rcl_publish(&pose_publisher, &pose_msg, NULL));
 
+  // Send a zero vector to stop the 3pi if no vectors have been recieved recently
   if (timer_calls_without_vector >= VECTOR_STOP_TIME) {
     i2c_status_tx.x = 0;
     i2c_status_tx.y = 0;
@@ -474,17 +486,21 @@ bool timer_callback(void* args) {
 }
 
 void loop() {
+  //  Checks how long the timer has been running, and calls timer callback if needed
   timer.tick();
 
-  //  Checks for messages from the subscriptions
   if (!configured) {
+    //  Checks for messages from the setup subscriptions if the robot isnt configured 
     RCCHECK(rclc_executor_spin_some(&setup_executor, RCL_MS_TO_NS(500)));
+
+    //  Configures the robot if an id has been recieved
     if (id != -1) {
       configure_robot();
       configured = true;
     }
   }
   else {
+    //  Checks for messages from the subscriptions
     RCCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(500)));
   }
 }

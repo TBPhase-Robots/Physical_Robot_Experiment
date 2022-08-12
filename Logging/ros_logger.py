@@ -15,6 +15,7 @@ class RosLogger():
         with open('/etc/machine-id') as id_file:
             self.id = id_file.read()[:-1]
 
+    # Sends a log message to the logging system
     def log(self, message: str) -> None:
         status = DiagnosticStatus()
         status.level = DiagnosticStatus.OK
@@ -24,6 +25,7 @@ class RosLogger():
 
         self.logger.publish(status)
 
+    # Sends a warning message to the logging system
     def warn(self, message: str) -> None:
         status = DiagnosticStatus()
         status.level = DiagnosticStatus.WARN
@@ -33,6 +35,7 @@ class RosLogger():
 
         self.logger.publish(status)
 
+    # Sends an error message to the logging system
     def error(self, message: str) -> None:
         status = DiagnosticStatus()
         status.level = DiagnosticStatus.ERROR
@@ -41,17 +44,3 @@ class RosLogger():
         status.hardware_id = self.id
 
         self.logger.publish(status)
-
-def main():
-    # rclpy.init()
-
-    # device = 0
-    # if len(sys.argv) > 1:
-    #     device = int(sys.argv[1])
-    
-    # rclpy.spin(aruco_tacker)
-    # rclpy.shutdown()
-    pass
-
-if __name__ == "__main__":
-    main()

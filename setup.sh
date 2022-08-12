@@ -11,6 +11,10 @@ pushd Camera
 python3 tracking_aruco_markers.py $1 &
 popd
 
+pushd Logging
+python3 log_display.py &
+popd
+
 # python3 Experiments/Hello_World/hello_world_central_program.py &
 
 sleep 5
