@@ -1,17 +1,17 @@
-#include <Wire.h>
 #include "encoders.h"
 #include "kinematics.h"
+#include <Wire.h>
 //#include <Zumo32U4.h>
 
 Kinematics_c kinematics;
 
 #define I2C_ADDR 8
 
-//  Defines motor directions
+// Defines motor directions
 #define FWD LOW
 #define REV HIGH
 
-//  Defines motor pins
+// Defines motor pins
 #define L_PWM_PIN 10
 #define L_DIR_PIN 16
 #define R_PWM_PIN 9
@@ -40,46 +40,39 @@ float rightVel = 30;
 // Note that the Arduino is limited to
 // a buffer of 32 bytes!
 #pragma pack(1)
-typedef struct i2c_status
-{
-  float x;       // 4 bytes
-  float y;       // 4 bytes
-  float theta;   // 4 bytes
-  int8_t status; // 1 byte
-  int8_t packet_type; // 1 byte
+typedef struct i2c_status {
+  float x;             // 4 bytes
+  float y;             // 4 bytes
+  float theta;         // 4 bytes
+  int8_t status;       // 1 byte
+  int8_t packet_type;  // 1 byte
 } i2c_status_t;
 #pragma pack()
 
-//  Data sent to and from the M5Stack
+// Data sent to and from the M5Stack
 i2c_status_t i2c_status_tx;
 volatile i2c_status_t i2c_status_rx;
 
-//  Drives the left motor
-//  Positive velocity is forward, negative reverse
-void setLeftMotor(int velocity)
-{
-  if (velocity >= 0)
-  {
+// Drives the left motor
+// Positive velocity is forward, negative reverse
+void setLeftMotor(int velocity) {
+  if (velocity >= 0) {
     digitalWrite(L_DIR_PIN, FWD);
   }
-  else
-  {
+  else {
     digitalWrite(L_DIR_PIN, REV);
   }
 
   analogWrite(L_PWM_PIN, abs(velocity));
 }
 
-//  Drives the right motor
-//  Positive velocity is forward, negative reverse
-void setRightMotor(int velocity)
-{
-  if (velocity >= 0)
-  {
+// Drives the right motor
+// Positive velocity is forward, negative reverse
+void setRightMotor(int velocity) {
+  if (velocity >= 0) {
     digitalWrite(R_DIR_PIN, FWD);
   }
-  else
-  {
+  else {
     digitalWrite(R_DIR_PIN, REV);
   }
 
@@ -88,30 +81,29 @@ void setRightMotor(int velocity)
 
 // When the Core2 calls an i2c request, this function
 // is executed.  Sends robot status to Core2.
-void i2c_sendStatus()
-{
-
+void i2c_sendStatus() {
   // Populate our current status
   i2c_status_tx.x = kinematics.x_global;
   i2c_status_tx.y = kinematics.y_global;
   i2c_status_tx.theta = kinematics.currentRotationCutoff;
 
   // Send up
-  Wire.write((byte *)&i2c_status_tx, sizeof(i2c_status_tx));
+  Wire.write((byte*)&i2c_status_tx, sizeof(i2c_status_tx));
 }
 
 float circular_uncertainty_mean(float cam_angle, float odo_angle) {
-  float sin_sum = sin(cam_angle) * (1 - rotation_uncertainty) + sin(kinematics.currentRotationCutoff) * rotation_uncertainty;
-  float cos_sum = cos(cam_angle) * (1 - rotation_uncertainty) + cos(kinematics.currentRotationCutoff) * rotation_uncertainty;
+  float sin_sum = sin(cam_angle) * (1 - rotation_uncertainty) +
+                  sin(kinematics.currentRotationCutoff) * rotation_uncertainty;
+  float cos_sum = cos(cam_angle) * (1 - rotation_uncertainty) +
+                  cos(kinematics.currentRotationCutoff) * rotation_uncertainty;
   return atan2(sin_sum, cos_sum);
 }
 
 // When the Core2 calls and i2c write, the robot
 // will call this function to receive the data down.
-void i2c_recvStatus(int len)
-{
-  //  Read the i2c status sent by the Core2
-  Wire.readBytes((byte *)&i2c_status_rx, sizeof(i2c_status_rx));
+void i2c_recvStatus(int len) {
+  // Read the i2c status sent by the Core2
+  Wire.readBytes((byte*)&i2c_status_rx, sizeof(i2c_status_rx));
 
   if (i2c_status_rx.packet_type == FORCE_PACKET) {
     // Recieves a force packet and sets the robots current force vector
@@ -124,35 +116,35 @@ void i2c_recvStatus(int len)
   else if (i2c_status_rx.packet_type == POSE_PACKET) {
     // Recieves a pose packet and updates the robots kinematics
     // The greater the uncertainty the less the kinematics are changed
-    kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) + kinematics.x_global * position_uncertainty;
-    kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) + kinematics.y_global * position_uncertainty;
-    kinematics.currentRotationCutoff = circular_uncertainty_mean(i2c_status_rx.theta, kinematics.currentRotationCutoff);
+    kinematics.x_global = i2c_status_rx.x * (1 - position_uncertainty) +
+                          kinematics.x_global * position_uncertainty;
+    kinematics.y_global = i2c_status_rx.y * (1 - position_uncertainty) +
+                          kinematics.y_global * position_uncertainty;
+    kinematics.currentRotationCutoff = circular_uncertainty_mean(
+        i2c_status_rx.theta, kinematics.currentRotationCutoff);
   }
   else if (i2c_status_rx.packet_type == UNCERTAINTY_PACKET) {
     // Recieves an uncertanty packet and sets the robot's uncertainties
     position_uncertainty = i2c_status_rx.x;
     rotation_uncertainty = i2c_status_rx.theta;
   }
-
 }
 
 // Reads the battery voltage
-inline uint16_t readBatteryMillivolts()
- {
-     const uint8_t sampleCount = 8;
-     uint16_t sum = 0;
-     for (uint8_t i = 0; i < sampleCount; i++)
-     {
-         sum += analogRead(A1);
-     }
-  
-     // VBAT = 2 * millivolt reading = 2 * raw * 5000/1024
-     //      = raw * 625 / 64
-     // The correction term below makes it so that we round to the
-     // nearest whole number instead of always rounding down.
-     const uint32_t correction = 32 * sampleCount - 1;
-     return ((uint32_t)sum * 625 + correction) / (64 * sampleCount);
- }
+inline uint16_t readBatteryMillivolts() {
+  const uint8_t sampleCount = 8;
+  uint16_t sum = 0;
+  for (uint8_t i = 0; i < sampleCount; i++) {
+    sum += analogRead(A1);
+  }
+
+  // VBAT = 2 * millivolt reading = 2 * raw * 5000/1024
+  //      = raw * 625 / 64
+  // The correction term below makes it so that we round to the
+  // nearest whole number instead of always rounding down.
+  const uint32_t correction = 32 * sampleCount - 1;
+  return ((uint32_t)sum * 625 + correction) / (64 * sampleCount);
+}
 
 int battery_millivolts;
 
@@ -173,11 +165,10 @@ void check_battery() {
   }
 }
 
-void setup()
-{
+void setup() {
   check_battery();
-  
-  //  Sets up motor output pins
+
+  // Sets up motor output pins
   pinMode(L_DIR_PIN, OUTPUT);
   pinMode(L_PWM_PIN, OUTPUT);
   pinMode(R_DIR_PIN, OUTPUT);
@@ -185,7 +176,7 @@ void setup()
 
   pinMode(A1, INPUT);
 
-  //  Stops both motors
+  // Stops both motors
   setLeftMotor(0);
   setRightMotor(0);
 
@@ -198,8 +189,8 @@ void setup()
   delay(1000);
 
   // Clear out i2c data structs
-  memset((void *)&i2c_status_tx, 0, sizeof(i2c_status_tx));
-  memset((void *)&i2c_status_rx, 0, sizeof(i2c_status_rx));
+  memset((void*)&i2c_status_tx, 0, sizeof(i2c_status_tx));
+  memset((void*)&i2c_status_rx, 0, sizeof(i2c_status_rx));
 
   // Begin I2C as a slave device.
   Wire.begin(I2C_ADDR);
@@ -209,15 +200,14 @@ void setup()
   goal_angle = 0.0;
 }
 
-void go_forward(float vel)
-{
+void go_forward(float vel) {
   setLeftMotor(vel);
   setRightMotor(vel);
-  leftVel = vel ;
-  rightVel = vel ;
+  leftVel = vel;
+  rightVel = vel;
 }
 
-// Sets value to be between -pi and pi 
+// Sets value to be between -pi and pi
 float between_pi(float angle) {
   while (abs(angle) > PI) {
     if (angle > 0) {
@@ -234,7 +224,8 @@ float between_pi(float angle) {
 int last_check_time = 0;
 int current_time = 0;
 
-//  Prevents the 3pi motors from stalling (they don't like pwm values of less than 20)
+// Prevents the 3pi motors from stalling (they don't like pwm values of less
+// than 20)
 int min_pwm(int pwm) {
   if (abs(pwm) < 20) {
     return 0;
@@ -253,7 +244,7 @@ int min_pwm(int pwm) {
 }
 
 void loop() {
-  float current_angle = kinematics.currentRotationCutoff; 
+  float current_angle = kinematics.currentRotationCutoff;
   float newGoal = goal_angle;
   float max_speed = MAX_SPEED;
   float speed = 0;
@@ -292,12 +283,11 @@ void loop() {
     turnDirection = -1;
   }
   else {
-
     // Set speed to the magnitude of the force vector
     speed = sqrt(force_x * force_x + force_y * force_y);
   }
 
-  turn_error = (newGoal - current_angle) * turnDirection; // recheck turn_error
+  turn_error = (newGoal - current_angle) * turnDirection;  // recheck turn_error
   turn_error = between_pi(turn_error);
 
   // Only move if force is not close to 0
@@ -312,7 +302,6 @@ void loop() {
 
     // Turn if error is too large
     if (abs(turn_error) > 0.2) {
-
       // Increase error by turning multiplier, for sharper turns
       float scaled_error = turn_error * TURNING_MULTIPLIER;
       if (scaled_error > PI) {
@@ -348,8 +337,7 @@ void loop() {
   kinematics.updateLoop();
 }
 
-void printRXStatus()
-{
+void printRXStatus() {
   Serial.println(i2c_status_rx.x);
   Serial.println(i2c_status_rx.y);
   Serial.println(i2c_status_rx.theta);
