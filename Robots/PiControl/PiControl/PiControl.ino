@@ -257,7 +257,7 @@ void loop() {
 
   // Check battery level every 20s
   current_time = millis();
-  if (current_time - last_check_time > 20000) {
+  if (current_time - last_check_time > 5000) {
     check_battery();
     last_check_time = millis();
   }
