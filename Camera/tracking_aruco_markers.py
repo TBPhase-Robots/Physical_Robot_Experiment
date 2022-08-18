@@ -195,6 +195,8 @@ class ArucoTrack(Node):
         self.create_robot(msg.data)
 
     def removed_robot_callback(self, msg: Int32):
+
+        
         self.logger.log(f'removing robot: {msg.data}')
         self.remove_robot(msg.data)
         self.active_robots.remove(msg.data)
@@ -225,6 +227,11 @@ class ArucoTrack(Node):
         #     self.vectors_to_robots.append(vector_pos)
  
     def publish_positions(self):
+
+        """
+        Aim of function: Publish the positions of all markers to ROS topics.
+
+        """
 
         for pos in self.vectors_to_robots:
 
@@ -269,6 +276,8 @@ class ArucoTrack(Node):
 
     def shutdown_callback(self):
 
+        """Shuts down server"""
+
         self.logger.log("shutting down")
 
         self.cam.release()
@@ -276,6 +285,7 @@ class ArucoTrack(Node):
         cv2.destroyAllWindows()
 
     def origin_callback(self, msg: Vector3):
+        """Sets origin of coordinate reference frame"""
         self.origin = msg
 
     def calibrate_cam_pos(self):
@@ -288,7 +298,8 @@ class ArucoTrack(Node):
         self.h, status = cv2.findHomography(perf_img_points,cam_points) # gives homographic transform matrix
 
     def transform_pos(self):
-
+        """Performs a perspective transform on all elements in the current list of 'middles'
+        middles are screen coordinates of ArUco markers."""
         self.middles_on_floor = []
 
         for middle in self.middles :

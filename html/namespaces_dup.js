@@ -1,0 +1,36 @@
+var namespaces_dup =
+[
+    [ "Agent", "namespace_agent.html", "namespace_agent" ],
+    [ "colours", "namespacecolours.html", [
+      [ "BLACK", "namespacecolours.html#a79fce5c29e257649416bc1ed0d34f842", null ],
+      [ "BLUE", "namespacecolours.html#aa1a416194ec5f672a36a440dfec7b56e", null ],
+      [ "COLLECT", "namespacecolours.html#acad5f96692de76f9df96ca9542d10422", null ],
+      [ "DGREEN", "namespacecolours.html#a87163bc2d1ce8130d8940ad87d0e2b18", null ],
+      [ "DGREY", "namespacecolours.html#a31af5885085d52b5838a4a2d6580f2c0", null ],
+      [ "DRIVE", "namespacecolours.html#a2bb3f8616f29b5d2d5a7ea899df99a1c", null ],
+      [ "FIVE", "namespacecolours.html#a566f1ccf1e018eca079f40623b68fbba", null ],
+      [ "FOUR", "namespacecolours.html#ad239899afa52068ca6029f2d61c726bb", null ],
+      [ "GRAZE", "namespacecolours.html#a01eed962dfd8f129bb18320b5c8191e2", null ],
+      [ "GREEN", "namespacecolours.html#abab60abdfac379c9353b8014b51afda4", null ],
+      [ "GREY", "namespacecolours.html#a12f8a7204edb343832d075a63faa7619", null ],
+      [ "HERD", "namespacecolours.html#ac7d18c8d2df920fa3924ed8dd8f03b69", null ],
+      [ "ONE", "namespacecolours.html#a343558fd2ed89ccd3604fe92a7ca6330", null ],
+      [ "ORANGE", "namespacecolours.html#abaf338bd0b820cc926c6af453127c9fa", null ],
+      [ "PINK", "namespacecolours.html#aa1759c5c1cf0af8c3294baea7ca97794", null ],
+      [ "RED", "namespacecolours.html#afd0ac26d958de1953c45b6d3f61b3ec7", null ],
+      [ "SRANGE", "namespacecolours.html#a13f80ddb688a1142f4ec49e2e3745c05", null ],
+      [ "THREE", "namespacecolours.html#a5f950b93dd1c872fd15d272eb9223982", null ],
+      [ "TWO", "namespacecolours.html#a7b7515685b658ad4ccfe1f9c584c4913", null ],
+      [ "WHITE", "namespacecolours.html#a3ddc22c2d5b81d3aba9b75df3edc4acf", null ],
+      [ "YELLOW", "namespacecolours.html#a6c40e349a2acaa35f0565ae44b2e6132", null ]
+    ] ],
+    [ "log_display", "namespacelog__display.html", "namespacelog__display" ],
+    [ "marker_maker", "namespacemarker__maker.html", "namespacemarker__maker" ],
+    [ "PathfindingManager", "namespace_pathfinding_manager.html", "namespace_pathfinding_manager" ],
+    [ "robot_server", "namespacerobot__server.html", "namespacerobot__server" ],
+    [ "ros_logger", "namespaceros__logger.html", "namespaceros__logger" ],
+    [ "runSimulation", "namespacerun_simulation.html", "namespacerun_simulation" ],
+    [ "SimulationNode", "namespace_simulation_node.html", "namespace_simulation_node" ],
+    [ "StateController", "namespace_state_controller.html", "namespace_state_controller" ],
+    [ "tracking_aruco_markers", "namespacetracking__aruco__markers.html", "namespacetracking__aruco__markers" ]
+];

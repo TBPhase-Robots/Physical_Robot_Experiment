@@ -9,42 +9,65 @@ import matplotlib as mpl
 import pandas as pd
 
 aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
+class Marker_Maker():
 
-def marker_to_int(marker_num):
-    img = aruco.drawMarker(aruco_dict, marker_num, 8)
+# Outputs a binary representation of an aruco marker
+def marker_to_int(marker_id):
+
+
+    """ marker_to_int takes a parameter marker_id of type int and returns a bitpacked binary representation of an ArUco marker.
+    
+     An ArUco marker is a synthetic square marker composed by a wide black border and an inner binary matrix.
+
+     Aruco markers are displayed on the m5 stacks to facilitate pose recognition by camera.
+     
+     """
+    # Creates the marker
+    img = aruco.drawMarker(aruco_dict, marker_id, 8)
+
+    # Rotates the marker, to compensate for the stack being rotated on the robots
     cv2.rotate(img, ROTATE_180, img)
+
     output = 0
     shift = 0
 
+    # Loops through each pixel
+    # Ignores the outside of the marker, as it is always black
     for line in img[1:-1]:
         for pixel in line[1:-1]:
             
+            # Sets the current bit of the output to 1 if the marker pixel is white 
             if pixel == 255:
                 output |= (1 << shift)
+
+            # Moves to the next bit of the output
             shift += 1
-
-
 
     return output
 
 def main():
-    number = 103
+    # The id of the marker to display
+    marker_id = 103
+
+    # Creates a matplotlib plot
     fig = plt.figure()
-    nx = 1
-    ny = 1
-    for i in range(number, nx*ny+number):
-        ax = fig.add_subplot(ny,nx, 1)
-        img = aruco.drawMarker(aruco_dict,i, 700)
-        plt.imshow(img, cmap = mpl.cm.gray, interpolation = "nearest")
-        ax.axis("off")
+    ax = fig.add_subplot(1, 1, 1)
 
-    print(marker_to_int(number))
+    # Draws the marker
+    img = aruco.drawMarker(aruco_dict, marker_id, 700)
 
-    
+    # Displays the marker on the plot
+    plt.imshow(img, cmap = mpl.cm.gray, interpolation = "nearest")
+    ax.axis("off")
 
-    plt.savefig("one_marker.pdf")
+    # Prints the marker's binary representation
+    print(f'the binary representation of marker {marker_id} is {marker_to_int(marker_id)}')
+
+    # Outputs the marker to PDF
+    plt.savefig("marker.pdf")
+
+    # Shows the marker image
     plt.show()
-
 
 if __name__ == "__main__":
     main()

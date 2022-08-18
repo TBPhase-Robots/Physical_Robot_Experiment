@@ -13,6 +13,8 @@ uint64_t numbers[] = {25538311935, 24549434930, 27128378286, 27333326284};
 
 //  Draws a thingy marker to the screen
 void drawMarker(u_int64_t data, uint32_t background) {
+
+  """Displays ArUco marker defined as u_int64_t binary to the m5 stack display, with defined background colour """
   M5.lcd.clear();
 
   int size = HEIGHT / 10;
