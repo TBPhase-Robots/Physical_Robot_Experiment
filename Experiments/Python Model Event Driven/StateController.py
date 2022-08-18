@@ -89,6 +89,13 @@ class StateController(Frame):
 
 
     def clickSendNewJsonButton(self):
+
+        """ Publishes string of the name of a json config file to ROS topic /controller/config
+        
+        String is in format std_msgs.msg.String 
+        
+        """
+
         print("sent new json")
         msg = String()
         msg.data = self.T.get("1.0", "end-1c")
@@ -96,10 +103,23 @@ class StateController(Frame):
         self.jsonPublisher.pub.publish(msg)
 
     def clickStandbyButton(self):
+
+        """ Publishes string of the standby command 'set_to_standby' to set all agents in runSimulation simulation to have tagged role 'standby'.
+        
+        String is in format std_msgs.msg.String 
+        
+        """
+
         msg = String()
         msg.data = "set_to_standby"
         self.statePublisher.pub.publish(msg)
     def clickSetupStartButton(self):
+
+        """ Publishes string of the command 'setup_start' to change the state of state machine in runSimulation main loop
+        
+        String is in format std_msgs.msg.String 
+        
+        """
 
         msg = String()
         msg.data = "setup_start"
@@ -111,6 +131,16 @@ class StateController(Frame):
         print(msg)
 
     def clickAddAgentButton(self):
+
+        """ Publishes Int32 of the id of a new agent to add to the simulation in runSimulation.py.
+
+        This method should only be called if the simulation is being run locally:
+        In such a case, cfg['event_driven'] should be false in the config file
+        
+        Int32 is in format std_msgs.msg.Int32 
+        
+        """
+        
         msg = Int32()
         msg.data = self.i
         self.i += 1
@@ -126,6 +156,12 @@ class StateController(Frame):
 
     def clickDogSetupLoopButton(self):
 
+        """ Publishes string of the command 'dog_setup_start' to change the state of state machine in runSimulation main loop
+        
+        String is in format std_msgs.msg.String 
+        
+        """
+
         msg = String()
         msg.data = "dog_setup_start"
 
@@ -135,6 +171,13 @@ class StateController(Frame):
         print(msg)
 
     def clickPigSetupLoopButton(self):
+
+
+        """ Publishes string of the command 'pig_setup_start' to change the state of state machine in runSimulation main loop
+        
+        String is in format std_msgs.msg.String 
+        
+        """
 
         msg = String()
         msg.data = "pig_setup_start"
@@ -146,12 +189,24 @@ class StateController(Frame):
 
     def standbySetupLoopButton(self):
 
+        """ Publishes string of the command 'standby_setup_start' to change the state of state machine in runSimulation main loop
+        
+        String is in format std_msgs.msg.String 
+        
+        """
+
         msg = String()
         msg.data = "standby_setup_start"
         self.statePublisher.pub.publish(msg)
         print(msg)
 
     def clickExperimentButton(self):
+
+        """ Publishes string of the command 'experiment' to change the state of state machine in runSimulation main loop
+        
+        String is in format std_msgs.msg.String 
+        
+        """
 
         msg = String()
         msg.data = "experiment"
@@ -163,6 +218,12 @@ class StateController(Frame):
 
     def clickDispatchButton(self):
 
+        """ Publishes string of the command 'dispatch' to tell the simulation to dispatch a standby agent and transform it into a dog agent.
+        
+        String is in format std_msgs.msg.String 
+        
+        """
+
         msg = String()
         msg.data = "dispatch"
 
@@ -172,6 +233,12 @@ class StateController(Frame):
         print(msg)
 
     def clickRecallButton(self):
+
+        """ Publishes string of the command 'recall' to tell the simulation to recall a dog agent and transform it into a standby agent.
+        
+        String is in format std_msgs.msg.String 
+        
+        """
 
         msg = String()
         msg.data = "recall"

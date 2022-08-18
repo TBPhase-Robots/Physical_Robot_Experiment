@@ -38,23 +38,24 @@ from model.PathfindingManager import PathfindingManager
 
 class RunSimulation():
 
-    state = "standby_setup_loop"
-    postedUpdates = 0
-    sendUpdates = False
+    state = "standby_setup_loop"     # State is a string variable used for controlling the state machine loop of runSimulation
+    
+    postedUpdates = 0 # postedUpdates describes the number of robot pose updates sent to the simulation from the server between now and the last update of the state machine
+    sendUpdates = False # if postedUpdates is >= 0 and the simulation is controlling real robots, then sendUpdates allows new commands to be sent to each agent
 
-    robot_dog_speed = 0
-    robot_pig_speed = 0
-    robot_sheep_speed = 0
-    robot_standby_speed = 0
+    #robot_dog_speed = 0
+    #robot_pig_speed = 0
+    #robot_sheep_speed = 0
+    #robot_standby_speed = 0
 
-    pack = pygame.sprite.Group()
-    flock = pygame.sprite.Group()
-    pigs = pygame.sprite.Group()
-    standby = pygame.sprite.Group()
-    agents = pygame.sprite.Group()
+    pack = pygame.sprite.Group() # Group of all dog agents. Sprite class allows efficient drawing to simulation window.
+    flock = pygame.sprite.Group() # Group of all sheep agents. 
+    pigs = pygame.sprite.Group() # Group of all unused agents. 
+    standby = pygame.sprite.Group() # Group of all standby agents. Standby agents are able to become dogs during the experiment.
+    agents = pygame.sprite.Group() # All agents in the simulation
 
 
-    config_name = 'defaultConfig'
+    config_name = 'defaultConfig' # Name of the configuration file to be used on first start up
     rclpy.init(args=None)
     # Define the simulation node globally
     # The simulation node is a single object with the responsibility of managing all ROS publishers and subscribers. It provides the interface to create new topic when needed.
@@ -63,9 +64,9 @@ class RunSimulation():
 
     # Configuration file loaded in as global reference:
 
-    cfg = 0
+ 
     with open(f"experiment_config_files/{config_name}.json") as json_file:
-        cfg = json.load(json_file)
+        cfg = json.load(json_file) # Configuration file loaded as dictionary
 
     if ('show_empowerment' not in cfg):
         cfg['show_empowerment'] = True
@@ -74,7 +75,11 @@ class RunSimulation():
 
     def SetConfigCallback(data):
 
-        """callback invoked by state controller to change the current config file
+        """SetConfigCallback is a callback invoked by state controller to change the current config (cfg) file in use by the program
+            Parameter 'data' is a message of type std_msgs.msg.String and contains the name of the new config
+
+            Usage:
+            cfgName = data.data
         """
 
         # set the config that we're going to use mid-experiment
@@ -96,13 +101,30 @@ class RunSimulation():
             print("incorrect file name ", cfgName)
 
 
-    # controller callback is called by an agent whenever it has successfully updated its state via ROS pose
+    
     def ControllerCallback(data):
+
+        """ControllerCallback is called by an agent whenever it has successfully received a new pose via ROS.
+           increments global postedUpdates upon being called"""
         global postedUpdates
         postedUpdates += 1
 
-    # dispatch callback used whenever a command is sent via ROS on the dispatch channel to turn agents from standby to dogs.
+    
     def DispatchCallback(data):
+
+        """Dispatch callback is called whenever a request is sent via ROS on the dispatch topic to turn an agent from standby to dog.
+        
+        Parameter 'data' is a message of type std_msgs.msg.String and contains the name of the command
+        
+        The command may either be 'dispatch' or 'recall' 
+        
+        Usage:
+        if(data.data == "dispatch"):
+            // do something
+        if(data.data == "recall"):
+            // do something else
+        """
+
         print("DispatchCallback")
         print(data.data)
         # if the user has sent command to dispatch
@@ -122,12 +144,33 @@ class RunSimulation():
 
 
     def GetAnyAgentFromGroup(group):
+        """ Returns any agent from the given group. Used due to how Groups are not naturally iterable."""
         for agent in group:
             return agent
 
 
-    # command listener callback is called whenever a new state is recieved by user via the state controller script, utilising CommandListener.py
+    # command listener callback is called whenever a new state is recieved by user via the state controller script
     def CommandListenerCallback(data):
+
+        """command listener callback is called whenever a new state is recieved by user via the state controller script
+        
+        Parameter 'data' is a message of type std_msgs.msg.String and contains the name of the command
+        
+        The command may be 'set_to_standby', 'setup_start', 'sheep_setup_loop', 'dog_setup_loop', 'pig_setup_loop', 'experiment'
+        
+        set_to_standby is a special case, as it is the only valid command that does not change the state variable/
+
+        Usage:
+        if(data.data == "set_to_standby"):
+            for agent in agents:
+                agent.role = "standby"
+
+            SortAgentsByRole()
+        else:
+            state = data.data
+        """
+
+
         global state
         print("CommandListenerData:")
         print(data.data)
@@ -143,6 +186,12 @@ class RunSimulation():
 
     # Calculates voronoi partition for current flock/pack behaviour
     def calc_voronoi_partitioning(flock, pack):
+
+        """For a given pair of flock and pack groups, the voronoi partition is calculated.
+        
+            Each dog agent has their subflock cleared, then reset with closest sheep agents.
+            
+            Each sheep recalculates their nearest dog """
         for dog in pack:
             dog.empty_sub_flock()
 
@@ -159,6 +208,15 @@ class RunSimulation():
 
     # Add agent function registers an agent within the simulation environment, with specified ID
     def add_agent(agents, position, cfg, id, screen, simulationNode):
+
+        """The add_agent function adds a new agent with specified position and ID to the simulation space.
+        Parameters:
+        agents: List of all agents
+        position: tuple of x,y coordinates in screen space
+        cfg: config file
+        id: unique integer identifier
+        screen: reference to the current pygame display
+        simulationNode: object instance responsible for managing ROS publishers and subscribers"""
         agent = Agent(position=position, id=id, cfg=cfg, rotation=0.0, poseAgentCallback=ControllerCallback,
                     role="agent", screen=screen, simulationNode=simulationNode)
         agents.add(agent)
@@ -170,6 +228,15 @@ class RunSimulation():
 
     # Called whenever the command to add a new agent is recieved. Message contains ID of specified agent. Chooses a random location, then calls add_agent with specified location and ID.
     def add_agent_callback(msg):
+        """Called whenever the command to add a new agent is recieved via ROS.
+         Message contains ID of specified agent. The method chooses a random location, then calls add_agent with specified location and ID.
+         
+         Parameter 'msg' is a message of type std_msgs.msg.Int32 and contains the id of the new agent
+         
+         Usage:
+         
+         newAgentId = msg.data """
+        
         global agents
 
         print("========= callback done")
@@ -181,10 +248,15 @@ class RunSimulation():
         add_agent(agents=agents, position=np.array(
             [randx, randy]), cfg=cfg, id=new_id, screen=screen, simulationNode=simulationNode)
 
-    #Draws the statis componments of the world
+    # Draws the static componments of the world
     # This includes background, target area, and soft play area
     # Agent start positions are drawn as small dots
     def DrawWorld(cfg):
+
+        """ DrawWorld draws the static componments of the world.
+        This includes background, target area, and soft play area.
+        Agent start positions are drawn as small dots."""
+
         screen.fill(colours.DGREY)
         pygame.draw.rect(screen, colours.GREY, pygame.Rect(
             0, 0, cfg['world_width'], cfg['world_height']))
@@ -210,6 +282,14 @@ class RunSimulation():
 
     # calls standard behaviour on all sheep and dog agents for simulation
     def ExperimentUpdateTimestep(pack, flock, cfg):
+        """Calls standard behaviour on all sheep and dog agents for the simulation.
+        Called in the "experiment" state of the state machine
+        
+        Parameters:
+        Pack: Group/List of all dog agents in the simulation
+        Flock: Group/List of all sheep agents in the simulation
+        cfg: Config file dictionary"""
+
         if (len(pack) > 0):
             calc_voronoi_partitioning(flock, pack)
             for dog in pack:
@@ -228,6 +308,16 @@ class RunSimulation():
     # Calls MoveToPoint on agent if displacement from target is greater than threshold, otherwise  HaltAgent is called.
     # HaltAgent sends a command to physical robot to stop moving
     def MoveToPointDecision(agent: Agent, movePos, cfg):
+        """ Function repeatedly called to decide if an agent should move to a destination, or if it already has reached destination. 
+        Calls function MoveToPoint on specified agent if its displacement from a target is greater than a threshold, otherwise the function HaltAgent is called.
+        
+        Function HaltAgent sends a command to physical robot to stop moving
+
+        Parameters:
+        agent: Subject agent of type agent
+        movePos: Target screenspace coordinates
+        cfg: Config file dictionary
+        """
         point_x = movePos[0]
         point_y = movePos[1]
         agentPos = np.array([agent.position[0], agent.position[1]])
@@ -238,9 +328,17 @@ class RunSimulation():
         else:
             agent.HaltAgent(screen=screen)
 
-    # Extended version of MoveTpPointDecision. Takes a list of destinations and moves agent towards each in order. Stops and returns 1 when finished path.
+    # Extended version of MoveToPointDecision. Takes a list of destinations and moves agent towards each in order. Stops and returns 1 when finished path.
     # Path is usually defined by points calculated with the pathfinding feature.
     def FollowPathDecision(agent: Agent, path, cfg):
+
+        """Extended version of MoveToPointDecision. Takes a list of destinations and moves agent towards each destination in order. Stops and returns 1 when agent finishes path.
+        
+        Parameters:
+        agent: Subject agent of type agent
+        path: List of screenspace coordinate pairs
+        cfg: Config file dictionary
+        """
 
         pathFindingTileRadius = cfg['world_width'] / cfg['path_finding_width']
 
@@ -271,6 +369,12 @@ class RunSimulation():
 
     # Function moves all agents tagged standby directly to a unique standby position
     def StandbySetupUpdateTimestep(agents, cfg):
+
+        """Function moves all agents tagged standby directly to a unique standby position as defined in config file.
+        
+        Parameters:
+        agents: Group/List of all agents tagged with role standby.
+        cfg: Config file dictionary."""
         # make all agents go to top
         standbyPositions = cfg['standby_positions']
         i = 0
@@ -283,11 +387,19 @@ class RunSimulation():
 
     # Set the role tag of all agents to standby
     def SetAllAgentRolesToStandby():
+        """Sets all agents in the global agent group (all agents currently in the simulation) to have tagged role 'standby'."""
         for agent in agents:
             agent.role = "standby"
 
     # Empty pack, flock, pigs, and standby groups. Resort all agents defined in group Agents into these groups defined by their role tag
     def SortAgentsByRole():
+        
+        """Sorts all agents from the global list of agents by their tagged role. 
+        Clears pack, flock, pigs, and standby groups.
+        Adds agents back to these global groups based on their tag.
+        
+        Sets colour of each agent (and robot) after it is sorted to new group."""
+        
         # get maximum robot speeds and transmit
         global robot_dog_speed
         global robot_pig_speed
@@ -378,8 +490,17 @@ class RunSimulation():
             return distanceSquared <= radiusSquared
         return False
 
-    # Removes an agent by ID. Sends the ID of the deleted agent to the agentRemovalRequest topic
+    
     def RemoveAgent(agent, agentRemovalRequestPublisher):
+        """ Removes an agent in the simulation. Sends the ID of the deleted agent to the agentRemovalRequest ROS publisher.
+        Removes agent from the global agents group. Re orders sub groups of pack, flock, pigs, and standby by calling 
+        SortAgentsByRole() after the operation.
+        
+        Parameters:
+        
+        agent: The agent object to be removed
+        agentRemovalRequestPublisher: The publisher object to which to send the agent ID after successful removal """
+
         print("removing agent ", agent.id)
         msg = Int32()
         msg.data = agent.id
@@ -391,7 +512,22 @@ class RunSimulation():
         add_sound = pygame.mixer.Sound("audio/remove_test.mp3")
         pygame.mixer.Sound.play(add_sound)
 
+    
     def RemoveAgentCallback(message):
+        """ Called by the  kill listener ROS subscriber as a callback when a message is successfully received.
+        
+        The subscriber listens to topic '/global/agents/removed'
+        
+        Parameter 'message' is a message of type std_msgs.msg.Int32 and contains the id of the agent to remove from the simulation.
+        
+        Function RemoveAgent is called with a reference to the identified agent and reference to the agentRemovalRequestPublisher object. 
+        
+        Usage:
+        id = message.data
+        for agent in agents:
+            if agent.id == id:
+                RemoveAgent(agent, agentRemovalRequestPublisher)
+        """
         id = message.data
         for agent in agents:
             if agent.id == id:
@@ -401,6 +537,17 @@ class RunSimulation():
 
 
     def main(show_empowerment=False):
+
+        """ Main is the default entry method of the simulation program.
+        
+        The main function defines the control loop state machine with states:
+
+        setup_start:
+
+        
+        
+        
+        """
 
         global screen
         global state
