@@ -15,10 +15,10 @@ from datetime import datetime
 
 import time
 import os
-from ProtoInputHandler import ProtoInputHandler
-from model.Listener import Listener
-from model.CommandListener import CommandListener
-from model.AgentListener import AgentListener
+#from ProtoInputHandler import ProtoInputHandler
+#from model.Listener import Listener
+#from model.CommandListener import CommandListener
+#from model.AgentListener import AgentListener
 
 from model.ArenaCorner import ArenaCorner
 
@@ -138,6 +138,8 @@ def CommandListenerCallback(data):
         SortAgentsByRole()
     else:
         state = data.data
+        print("success")
+        print(state)
 
 # Calculates voronoi partition for current flock/pack behaviour
 def calc_voronoi_partitioning(flock, pack):
@@ -548,7 +550,6 @@ def main(show_empowerment=False):
         # Only the single simulation node needs to be polled when looking out for new messages
         # -- Poll the simulation node:
         rclpy.spin_once(simulationNode, timeout_sec=0.1)
-
         
         # If there have been no changes of state in the last execution step as detected by the camera and sent via ROS
         # postedUpdates is incremented by agent position callbacks
@@ -561,10 +562,11 @@ def main(show_empowerment=False):
         # if we have recieved an update from one of the agents, then proceed with simulation
         # cfg['event_driven'] is the flag that should be set to true when running the experiment with real robots
         # Only execute the state machine loop if we are running locally or if there is a new detected real world state
-        if(sendUpdates or not cfg['event_driven']):
-
+        if(sendUpdates or (not cfg['event_driven'])):
+            print("here we are")
             # ===================================== SETUP START==============================#
             if(state == "setup_start"):
+                print("and here we are also in set_up start")
 
                 # we assume all agents are in standby position. Set all agents to standby:
                 SetAllAgentRolesToStandby()
@@ -636,6 +638,7 @@ def main(show_empowerment=False):
 
             # ===================================== SHEEP SETUP LOOP ===============================#
             if(state == "sheep_setup_loop"):
+                print("here we are in sheep setup loop")
 
                 # get the list of positions for sheep to move to
 
@@ -693,6 +696,7 @@ def main(show_empowerment=False):
                 pathfindingAgentId = 0
             # ===================================== PIG SETUP LOOP ===============================#
             if(state == "pig_setup_loop"):
+                print("here we are in pig setup")
                 if(cfg['sequential_pathfinding']):
                     pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
                         pathfindingAgentId, pigs, agents, cfg, FollowPathDecision, cfg['pigsty_positions'])
@@ -701,6 +705,7 @@ def main(show_empowerment=False):
                         FollowPathDecision(agent=pig, path=pig.path, cfg=cfg)
             # ===================================== STANDBY SETUP START ===============================#
             if(state == "standby_setup_start"):
+                print("here we are in standby start")
                 i = 0
                 standbyPositions = cfg['standby_positions']
                 stationaryAgents = [flock, pigs, pack]
@@ -715,11 +720,13 @@ def main(show_empowerment=False):
                 pathfindingAgentId = 0
             # ===================================== STANDBY SETUP LOOP ===============================#
             if(state == "standby_setup_loop"):
+                print("here we are in standby loop")
                 for agent in standby:
                     FollowPathDecision(agent=agent, path=agent.path, cfg=cfg)
             
             # ===================================== EXPERIMENT ===============================#
             elif(state == "experiment"):
+                print("here we are in experiment")
                 ExperimentUpdateTimestep(pack=pack, flock=flock,  cfg=cfg)
                 StandbySetupUpdateTimestep(agents=standby, cfg=cfg)
                 for pig in pigs:

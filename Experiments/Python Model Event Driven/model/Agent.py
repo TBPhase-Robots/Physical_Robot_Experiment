@@ -23,10 +23,10 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 
-from model.Listener import Listener
-from model.VectorPublisher import VectorPublisher
-from model.FloatPublisher import FloatPublisher
-from model.ColourPublisher import ColourPublisher
+#from model.Listener import Listener
+#from model.VectorPublisher import VectorPublisher
+#from model.FloatPublisher import FloatPublisher
+#from model.ColourPublisher import ColourPublisher
 from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
@@ -798,7 +798,7 @@ class Agent(pygame.sprite.Sprite):
                     else:
                         self.position = np.add(
                             self.position, self.grazing_direction)
-            #input("stopping here - hit return to continue")
+            input("stopping here - hit return to continue")
 
         # if the sheep is not grazing, exhibit the following behaviour:
         else:
@@ -885,7 +885,7 @@ class Agent(pygame.sprite.Sprite):
                 pygame.draw.line(screen, colours.RED, self.position, np.add(
                     self.position, 10 * cfg['sheep_attraction_to_sheep'] * F_G), 8)
 
-            #input("also stopping here - hit return to continue")
+            input("also stopping here - hit return to continue")
 
         collision_check = True
 
