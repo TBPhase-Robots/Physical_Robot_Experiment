@@ -678,24 +678,40 @@ class Agent(pygame.sprite.Sprite):
         forwardX = math.sin(self.rotation)
         forwardY = math.cos(self.rotation)
 
+        print(self.id,"forwardX",forwardX)
+        print(self.id,"forwardY",forwardY)
+
+        print(self.closest_dog)
         # if there is a dog within our vision range, do not exhibit grazing behaviour, RUN AWAY!
         if (self.closest_dog != None):
+            print(self.id,"may be fleeing..")
+            print(np.linalg.norm(self.position - self.closest_dog.position))
+            print(self.position, self.closest_dog.position)
+            print(cfg['sheep_vision_range'])
             if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
                 self.grazing = False
+                print("and",self.id,"is too close to a dog..")
+                print("so",self.id,"is fleeing..")
             else:
+                print("but",self.id,"is not close enough to a dog..")
+                print("so",self.id,"is grazing..")
                 if (random.random() < 0.05):
                     self.grazing_direction = np.array(
                         [random.uniform(-3, 3), random.uniform(-3, 3)])
+                    print("..in a random direction",self.grazing_direction)
                 self.grazing = True
                 if (cfg['event_driven']):
                     self.HaltAgent(screen=screen)
         # if we are safe from dog agents, then graze
         else:
             self.grazing = True
+            print(self.id,"is grazing..")
             if (random.random() < 0.05):
+                print(self.id,"randomly..")
                 self.grazing_direction = np.array(
                     [random.uniform(-3, 3), random.uniform(-3, 3)])
-
+                print(self.id, self.grazing_direction)
+ 
         #print(f"sheep grazing: {self.grazing}, id: {self.id}")
 
         # TODO update grazing behaviour over network
@@ -706,8 +722,11 @@ class Agent(pygame.sprite.Sprite):
 
             if (len(flock) > 1):
                 F_S = self.calc_F_S_Sheep(flock, cfg)
+                print(self.id,"F_S = ",F_S)
             else:
                 F_S = 0
+                print(self.id,"F_S = ",F_S, "(no other sheep)")
+
 
             # TODO - grazing behavuour over network
             # if(cfg['event_driven']):
@@ -716,10 +735,10 @@ class Agent(pygame.sprite.Sprite):
             # TODO
             # update repulsion to other sheep to be based on forces
             if (not cfg['event_driven_lock_movements']):
-                self.position = np.add(
-                    self.position, (cfg['sheep_repulsion_from_sheep'] * F_S))
+                self.position = np.add(self.position, (cfg['sheep_repulsion_from_sheep'] * F_S))
             else:
                 F = cfg['sheep_repulsion_from_sheep'] * F_S
+                print(self.id,"F = ",F, "(F_S * sheep_repulsion_from_sheep parameter)")
 
                 # check for bounds outside of the play area
                 # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
@@ -729,13 +748,14 @@ class Agent(pygame.sprite.Sprite):
                 playAreaTopBound = cfg['play_area_y']
 
                 playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
-                playAreaBottomBound = playAreaTopBound + \
-                    cfg['play_area_height']
-                boundaryForce, outOfBounds = self.calc_boundary_force(
-                    x, y, cfg)
+                playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
+                boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+
+                print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
                 # if outside of the play area, add an overwhelming force to return back inside it
                 F = np.add(boundaryForce*40, F)
+                print(self.id,"F = ",F, "(F_S * sheep_repulsion_from_sheep parameter + F_boundary)")
 
                 # publish F to topic
                 #print("sheepForce: ",  F)
@@ -747,10 +767,11 @@ class Agent(pygame.sprite.Sprite):
                         self.position, 100 * F), 16)
 
                 self.PublishForceToTopic(F, screen)
+                print("Published!")
 
             # calculate the angle between current sheep bearing and target sheep grazing direction
-            angle = self.CalcAngleBetweenVectors(
-                np.array([forwardX, -forwardY]), self.grazing_direction)
+            angle = self.CalcAngleBetweenVectors(np.array([forwardX, -forwardY]), self.grazing_direction)
+            print(self.id, "angle", angle)
             if (cfg['realistic_agent_movement_markers']):
                 # black line is target rotation
                 pygame.draw.line(screen, colours.BLACK, self.position, np.add(
@@ -761,6 +782,7 @@ class Agent(pygame.sprite.Sprite):
 
             # differntial grazing drive (if local simulation)
             if (random.random() < cfg['grazing_movement_chance'] and not cfg['event_driven_lock_movements']):
+                print("IS this code being run?")
                 if (not cfg['realistic_agent_movement']):
                     self.position = np.add(
                         self.position, self.grazing_direction)
@@ -776,10 +798,11 @@ class Agent(pygame.sprite.Sprite):
                     else:
                         self.position = np.add(
                             self.position, self.grazing_direction)
+            #input("stopping here - hit return to continue")
 
         # if the sheep is not grazing, exhibit the following behaviour:
         else:
-            # we are no longer halted, there is adog in range
+            # we are no longer halted, there is a dog in range
             self.halted = False
             # calculate repulsion force of all dogs on the sheep
             F_D = self.calc_F_D_Sheep(pack, cfg)
@@ -792,8 +815,16 @@ class Agent(pygame.sprite.Sprite):
                 F_S = 0
                 F_G = 0
 
-            F = (cfg['sheep_resulsion_from_dogs'] * F_D) + (cfg['sheep_repulsion_from_sheep']
-                                                            * F_S) + (cfg['sheep_attraction_to_sheep'] * F_G)
+            print("we are fleeing under the following forces...")
+            print("F_D * sheep_dog_repulsion = ", F_D, "*", cfg['sheep_resulsion_from_dogs'], "=", F_D*cfg['sheep_resulsion_from_dogs'])
+            print("F_S * sheep_sheep_repulsion = ", F_S, "*", cfg['sheep_repulsion_from_sheep'], "=", F_S*cfg['sheep_repulsion_from_sheep'])
+            print("F_G * sheep_sheep_attraction = ", F_G, "*", cfg['sheep_attraction_to_sheep'], "=", F_G*cfg['sheep_attraction_to_sheep'])
+
+            F = (cfg['sheep_resulsion_from_dogs'] * F_D) + \
+                (cfg['sheep_repulsion_from_sheep'] * F_S) + \
+                (cfg['sheep_attraction_to_sheep'] * F_G)
+
+            print(self.id,"F = ",F, "(weighted sum of F_D, F_S, F_G)")
 
             # check for bounds outside of the play area
             # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
@@ -802,18 +833,21 @@ class Agent(pygame.sprite.Sprite):
 
             boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
             # if outside of the play area, add a force
+            print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
             # if outside of the play area, add an overwhelming force to return back inside it
             F = np.add(boundaryForce*40, F)
+            print(self.id,"final F = ",F, "(original F + F_boundary)")
 
             # publish F to topic
             #print("sheepForce: ",  F)
             #print("sheepForce magnitude", np.linalg.norm(F))
 
             self.PublishForceToTopic(F, screen)
+            print("Published")
 
-            angle = self.CalcAngleBetweenVectors(
-                np.array([forwardX, -forwardY]), np.array(F))
+            angle = self.CalcAngleBetweenVectors(np.array([forwardX, -forwardY]), np.array(F))
+            print(self.id, "angle", angle)
             if (cfg['realistic_agent_movement_markers']):
                 # black line is target rotation
                 pygame.draw.line(screen, colours.BLACK, self.position, np.add(
@@ -828,6 +862,7 @@ class Agent(pygame.sprite.Sprite):
 
             # local differential drive movement
             elif (not cfg['event_driven_lock_movements']):
+                print("Is this code even running?")
                 if (angle > 10):
                     self.rotation -= 0.2
                     self.position = np.add(
@@ -850,11 +885,14 @@ class Agent(pygame.sprite.Sprite):
                 pygame.draw.line(screen, colours.RED, self.position, np.add(
                     self.position, 10 * cfg['sheep_attraction_to_sheep'] * F_G), 8)
 
+            #input("also stopping here - hit return to continue")
+
         collision_check = True
 
         # TODO
         # update to differential drive and force behaviour
         if (not cfg['event_driven_lock_movements']):
+            print("I don't think this is running either?")
             while (collision_check):
                 collision_check = False
                 for agent in agents:
