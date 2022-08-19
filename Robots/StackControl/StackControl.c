@@ -1,7 +1,7 @@
 #include <M5Core2.h>
 
 #include <micro_ros_arduino.h>
-
+/* document*/
 #include <stdio.h>
 #include <rcl/rcl.h>
 #include <rcl/error_handling.h>
@@ -24,6 +24,14 @@
 #include <Wire.h>
 
 #include <arduino-timer.h>
+
+class StackControl_c {
+  public:
+  StackControl_c() {
+        /**
+      * Constructor
+      */
+    } 
 
 //  ROS error handlers. Calls error_loop if check fails.
 #define RCCHECK(fn) {rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){char message[128];sprintf(message, "Error on line %d with status %d. Aborting.\n", __LINE__, (int)temp_rc);M5.lcd.println(message);error_loop();}}
@@ -52,6 +60,17 @@
 // Needs to match the master device
 #pragma pack(1)
 typedef struct i2c_status {
+
+  /**
+      * i2c_status describes the x, y, theta, status, and packet members.
+      It is the data type defined to send(tx) and receive(rx) on the i2c bus on the 3pi+.
+      It must match the slave device.
+
+      Note that the Arduino is limited to a buffer of 32 bytes!
+
+      */
+
+
   float x;                  // 4 bytes
   float y;                  // 4 bytes
   float theta;              // 4 bytes
@@ -122,6 +141,9 @@ Timer<10> timer;
 
 //  Stops and prints an error.
 void error_loop(){
+  /**
+      * Stop all execution and print error.
+      */
   while(1){
     delay(25565);
   }
@@ -129,6 +151,17 @@ void error_loop(){
 
 //  Draws a thingy marker to the screen
 void drawMarker(u_int64_t data, uint32_t background) {
+
+  /**
+      * Draw an aruco marker to the m5 Stack Core 2 display.
+
+      Parameters:
+
+      u_int64_t data: Bitpacked binary representation of marker, generated on robot server.
+
+      uint32_t background: Background colour
+      */
+
   M5.lcd.clear();
 
   int size = HEIGHT / 10;
@@ -155,9 +188,19 @@ void drawMarker(u_int64_t data, uint32_t background) {
   M5.lcd.drawString(s, 0, 0);
 }
 
-// Handles vector messages recieved from a ROS subscription
+// Handles vector messages recieved from a ROS subscription.
+
+
 void vector_callback(const void * msgin)
 {
+
+  /**
+      * Handles movement vector messages recieved from a ROS subscription
+
+      Writes transmission to the 3Pi+ in the form of struct i2c_status via Wire with packet type FORCE_PACKET.
+      */
+
+
   //  Cast received message to vector
   const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
 
@@ -179,8 +222,19 @@ void vector_callback(const void * msgin)
 bool first_pose = true;
 
 // Handles vector messages recieved from a ROS subscription
+
 void camera_pose_callback(const void * msgin)
 {
+
+   /**
+      * Handles pose vector messages recieved from a ROS subscription.
+      
+      Pose describes current robot position and rotation. This overwrites the current pose calculated with the 3Pi+'s odometry.
+
+      Writes transmission to the 3Pi+ in the form of struct i2c_status via Wire with packet type POSE_PACKET.
+      */
+
+
   //  Cast received message to vector
   const geometry_msgs__msg__Pose * msg = (const geometry_msgs__msg__Pose *)msgin;
 
@@ -204,6 +258,15 @@ void camera_pose_callback(const void * msgin)
 // Handles vector messages recieved from a ROS subscription
 void uncertainty_callback(const void * msgin)
 {
+
+  /**
+      * Handles uncertainty vector messages recieved from a ROS subscription.
+      
+      Pose describes current robot position and rotation. This overwrites the current pose calculated with the 3Pi+'s odometry.
+
+      Writes transmission to the 3Pi+ in the form of struct i2c_status via Wire with packet type UNCERTAINTY_PACKET.
+      */
+
   //  Cast received message to vector
   const geometry_msgs__msg__Vector3 * msg = (const geometry_msgs__msg__Vector3 *)msgin;
 
@@ -223,6 +286,15 @@ void uncertainty_callback(const void * msgin)
 // Handles marker messages recieved from a ROS subscription
 void marker_callback(const void * msgin)
 {
+
+  /**
+      *  Handles marker messages recieved from a ROS subscription
+
+      Message contains marker binary representation.
+      
+      Calls drawMarker() function with binary representation and last known colour as parameters.
+
+      */
   //  Cast received message to int
   const std_msgs__msg__Int64 * msg = (const std_msgs__msg__Int64 *)msgin;
 
@@ -233,6 +305,15 @@ void marker_callback(const void * msgin)
 }
 
 void id_callback(const void * msgin) {
+
+  /**
+      *  Handles robot ID messages recieved from a ROS subscription
+
+      Sets current robot ID and prints id to the top left of the stack screen.
+
+      */
+
+
   const std_msgs__msg__Int32 * msg = (const std_msgs__msg__Int32 *)msgin;
 
   id = msg->data;
@@ -244,6 +325,17 @@ void id_callback(const void * msgin) {
 }
 
 void colour_callback(const void * msgin) {
+
+  /**
+      *  Handles marker colour messages recieved from a ROS subscription
+
+      Message contains colour.
+
+      Sets current marker colour and calls drawMarker() with last known aruco marker representation and new colour as parameters.
+
+      */
+
+
   const std_msgs__msg__ColorRGBA * msg = (const std_msgs__msg__ColorRGBA *)msgin;
 
   uint32_t r = 255 * msg->r;
@@ -257,6 +349,31 @@ void colour_callback(const void * msgin) {
 }
 
 void configure_robot() {
+
+    /**
+      *  configure_robot handles ROS setup for the m5 stack.
+
+      Removes Setup ROS node and creates a new ROS node for the robot.
+
+      Subscribes to unique ROS topics:
+
+      Subscribes to the vector ROS topic, using Vector3 messages.
+
+      Subscribes to the camera poses ROS topic, using Vector3 messages
+
+      Subscribes to the uncertainty vector ROS topic, using Vector3 messages
+
+      Subscribes to the marker ROS topic, using Int64 messages.
+
+      Subscribes to the colour ROS topic, using ColorRGBA messages
+
+      All subscriptions are added to the executor queue. 
+
+      Sends acknowledgement of current ID to the robot server.
+
+      */
+
+
   Serial.println("Removing setup ROS node.");
   RCCHECK(rclc_executor_remove_subscription(&setup_executor, &id_subscription));
   RCCHECK(rcl_publisher_fini(&register_publisher, &setup_node));
@@ -388,6 +505,24 @@ void configure_robot() {
 }
 
 void setup() {
+
+  /**
+      *  setup function called when the M5 Stack is powered on.
+
+      M5, Wire, and Serial components are initialised.
+
+      Micro ROS connects to the local network 'TP-Link_102C'.
+      
+      NOTE: Micro ROS does not yet support acknowledgemnts so a time must be waited while establishing connection.
+
+      An executor is created to handle ROS subscriptions.
+
+      Micro ROS sets up temporary ROS node to create '/setup/register' publisher and '/setup/ids' subscriber to communicate with Robot Server.
+
+      Once initialised, request a robot ID via the ID publisher by sending a message with data '-1'.
+      */
+
+
   //  Set up stack
   M5.begin();
   M5.lcd.setTextSize(3);
@@ -443,6 +578,14 @@ void setup() {
 }
 
 bool timer_callback(void* args) {
+
+  /**
+      *  Publishes local pose to ROS.
+
+      Publishes ping to heartbeat publisher.
+      */
+
+
   RCSOFTCHECK(rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL));
 
   //  Gets current pose from 3Pi
@@ -474,6 +617,9 @@ bool timer_callback(void* args) {
 }
 
 void loop() {
+  /**
+      *  Loop calls the executor to poll all relevant ROS topics.
+      */
   timer.tick();
 
   //  Checks for messages from the subscriptions
@@ -490,8 +636,15 @@ void loop() {
 }
 
 void printRXStatus() {
+
+    /**
+      * Prints i2c_status_rx to Serial for debugging purposes.
+
+      Contains position and rotation data.
+      */
   Serial.println( i2c_status_rx.x ); 
   Serial.println( i2c_status_rx.y );
   Serial.println( i2c_status_rx.theta );
   Serial.println( i2c_status_rx.status );
+}
 }

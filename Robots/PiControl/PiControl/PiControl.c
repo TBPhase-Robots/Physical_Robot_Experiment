@@ -3,7 +3,15 @@
 #include "kinematics.h"
 //#include <Zumo32U4.h>
 
-Kinematics_c kinematics;
+
+
+class PiControl_c {
+  public:
+  PiControl_c() {
+
+    } 
+
+  Kinematics_c kinematics;
 
 #define I2C_ADDR 8
 
@@ -44,8 +52,21 @@ float rightVel = 30;
 // a buffer of 32 bytes!
 #pragma pack(1)
 typedef struct i2c_status
+     /**
+      * i2c_status describes the x, y, theta, status, and packet members.
+      It is the data type defined to send(tx) and receive(rx) on the i2c bus on the 3pi+.
+      It must match the master device.
+
+      Note that the Arduino is limited to a buffer of 32 bytes!
+
+      */
 {
-  float x;       // 4 bytes
+
+
+  float x;       /** aaa */
+        
+      
+      
   float y;       // 4 bytes
   float theta;   // 4 bytes
   int8_t status; // 1 byte
@@ -61,6 +82,10 @@ volatile i2c_status_t i2c_status_rx;
 //  Positive velocity is forward, negative reverse
 void setLeftMotor(int velocity)
 {
+  /**
+      * Sets velocity of the left motor. Takes an int between 0 and 255 as a parameter to denote a PWM value. Powers motor accordingly.
+        Positive velocity is forward, negative reverse
+      */
   if (velocity >= 0)
   {
     digitalWrite(L_DIR_PIN, FWD);
@@ -77,6 +102,10 @@ void setLeftMotor(int velocity)
 //  Positive velocity is forward, negative reverse
 void setRightMotor(int velocity)
 {
+   /**
+      * Sets velocity of the right motor. Takes an int between 0 and 255 as a parameter to denote a PWM value. Powers motor accordingly.
+        Positive velocity is forward, negative reverse
+      */
   if (velocity >= 0)
   {
     digitalWrite(R_DIR_PIN, FWD);
@@ -93,7 +122,10 @@ void setRightMotor(int velocity)
 // is executed.  Sends robot status to Core2.
 void i2c_sendStatus()
 {
-
+  /**
+      * When the m5 stack Core2 calls an i2c request, this function is executed. An i2c_status struct is packed with the robot's x y coordinates
+     and rotation. Struct is written to the transfer bus. x, y, and theta are determined in the kinematics module.
+      */
   // Populate our current status
   i2c_status_tx.x = kinematics.x_global;
   i2c_status_tx.y = kinematics.y_global;
@@ -107,6 +139,12 @@ void i2c_sendStatus()
 // will call this function to receive the data down.
 void i2c_recvStatus(int len)
 {
+
+   /**
+      * When the Core2 calls and i2c write, the robot will call this function to receive the data from the m5 stack to the 3Pi+ arduino board.
+      */
+
+
   //  Read the i2c status sent by the Core2
   Wire.readBytes((byte *)&i2c_status_rx, sizeof(i2c_status_rx));
 
@@ -139,6 +177,10 @@ void i2c_recvStatus(int len)
 
 inline uint16_t readBatteryMillivolts()
  {
+
+    /**
+      * Reads 3Pi+ battery voltage in millivolts. Samples eight times for a mean. Value is corrected to the nearest whole number.
+      */
      const uint8_t sampleCount = 8;
      uint16_t sum = 0;
      for (uint8_t i = 0; i < sampleCount; i++)
@@ -158,6 +200,35 @@ int battery_millivolts;
 
 void setup()
 {
+
+  /**
+      * Executes setup routines for all facets of the 3Pi+. Setup is called as soon as the 3Pi+ is powered on.
+
+      Calls encoder setup functions: setupEncoder0() and setupEncoder1()
+
+      Begins serial for debugging:
+
+
+          Serial.begin(9600);
+          Serial.println("***RESTART***");
+
+      i2c data structs are cleared:
+
+           memset((void *)&i2c_status_tx, 0, sizeof(i2c_status_tx));
+           memset((void *)&i2c_status_rx, 0, sizeof(i2c_status_rx));
+
+
+      Begin I2C as a slave device through Arduino Wire library:
+
+
+          Wire.begin(I2C_ADDR);
+          Wire.onRequest(i2c_sendStatus);
+          Wire.onReceive(i2c_recvStatus);
+
+
+      */
+
+
   battery_millivolts = readBatteryMillivolts();
   if (battery_millivolts / 4 < 700 && battery_millivolts > 20) {
     tone(6, 1000);
@@ -202,6 +273,13 @@ void setup()
 
 void set_z_rotation(float vel)
 {
+  /**
+      * Based on the robot's current velocity, determine the current rate of turning.
+
+      WARNING: Funcion may be deprecated.
+      */
+
+      
   if (vel == 0) {
     setLeftMotor(0);
     setRightMotor(0);
@@ -222,6 +300,9 @@ void set_z_rotation(float vel)
 
 void go_forward(float vel)
 {
+  /**
+      * Move the 3Pi+ forward at specified PWM speed.
+      */
   setLeftMotor(vel);
   setRightMotor(vel);
   leftVel = vel ;
@@ -229,6 +310,12 @@ void go_forward(float vel)
 }
 
 float between_pi(float angle) {
+
+  /**
+      * Takes an angle in radians and returns an angle wrapped between +- pi radians.
+      */
+
+
   while (abs(angle) > PI) {
     if (angle > 0) {
       angle -= 2 * PI;
@@ -245,6 +332,13 @@ int batteryTS = 0;
 int currentTS = 0;
 
 void loop() {
+
+
+  /**
+      * Control loop for 3Pi+ Arduino board.
+      */
+
+
   float theta = kinematics.currentRotationCutoff; 
   float error = (goal - theta);
   float newGoal = goal;
@@ -340,8 +434,14 @@ void loop() {
 
 void printRXStatus()
 {
+  /**
+      * Prints i2c_status_rx to Serial for debugging purposes.
+      */
+
+
   Serial.println(i2c_status_rx.x);
   Serial.println(i2c_status_rx.y);
   Serial.println(i2c_status_rx.theta);
   Serial.println(i2c_status_rx.status);
+}
 }

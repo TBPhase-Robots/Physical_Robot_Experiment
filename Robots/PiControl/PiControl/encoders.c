@@ -13,13 +13,61 @@ volatile byte state_e0; // used to store the prior and current state
 volatile long count_e1;
 volatile byte state_e1;
 
+class Encoders_c {
+  public:
 
+  Encoders_c() {
+      /**
+      * Constructor for encoders class
+      */
+    } 
+
+/* document*/
 
 // This ISR handles just Encoder 0
 // ISR to read the Encoder0 Channel A and B pins
 // and then look up based on  transition what kind of
 // rotation must have occured.
 ISR( INT6_vect)  {
+
+
+  /**
+      * This ISR (Interrupt Service Routine) handles just Encoder 0. Interrupt is triggered by change of state of the motor's quadrature encoder.
+        The quadrature encoder has two channels, A and B which may both have states 0 and 1.
+        ISR to read the Encoder0 Channel A and B pins and then look up based on transition what kind of motor rotation must have occured.
+
+        The ISR is only called when a pin changes. Only one pin may change at a time.
+        The XOR(AB) signal change from "Channel A" triggers ISR.
+
+        Firstly, the ISR reads the new state of the encoder pins:
+
+                boolean e0_B = digitalRead( ENCODER_0_B_PIN ); // normal B state
+                boolean e0_A = digitalRead( ENCODER_0_A_PIN ); // XOR(AB)
+
+        A software XOR (^) operation logically infers the true value of A given the state of B
+
+                e0_A = e0_A ^ e0_B;
+
+        
+        Bitpack the new and old encoder values into a 4 bit binary in the format:
+
+        State:  new B   new A   old B   old A
+        
+        State: (bit3)  (bit2)  (bit1)   (bit0)
+
+                state_e0 = state_e0 | ( e0_B  << 3 );
+                state_e0 = state_e0 | ( e0_A  << 2 );
+        
+        Perform a case match on the value of this 4 bit number to determine if the motor has moved forward or backwards.
+
+        Once this had been determined, clear the register.
+
+        Increment or decrement a volatile encoder count value based on movement.
+
+        NOTE: It takes 358 interrupts for a full rotation of the wheel (gearbox reduction * stator rotations)
+      */
+
+
   // We know that the ISR is only called when a pin changes.
   // We also know only 1 pin can change at a time.
   // The XOR(AB) signal change from "Channel A" triggers ISR.
@@ -88,6 +136,11 @@ ISR( INT6_vect)  {
 // and then look up based on  transition what kind of
 // rotation must have occured.
 ISR( PCINT0_vect)  {
+
+
+   /**
+      * This ISR handles just Encoder 1, see above ISR() definition and description.
+      */
  
     // First, Read in the new state of the encoder pins.
 
@@ -164,6 +217,56 @@ ISR( PCINT0_vect)  {
 
 void setupEncoder0() 
 {
+
+
+
+    /**
+      * 
+      setupEncoder0 must be called before encoder 0 can be accessed (or nothing wil happen!).
+      Function sets up encoder 0 for operation through the following actions:
+
+
+      Setup pins for encoder 0
+
+
+                pinMode( ENCODER_0_A_PIN, INPUT );
+                pinMode( ENCODER_0_B_PIN, INPUT );
+
+
+              
+      Initialise the recorded state of e0 encoder.
+
+                state_e0 = 0;
+
+      Get initial state of encoder pins A + B
+
+
+                boolean e0_A = digitalRead( ENCODER_0_A_PIN );
+                boolean e0_B = digitalRead( ENCODER_0_B_PIN );
+                e0_A = e0_A ^ e0_B;
+
+      Set up PE6 as an external interupt (INT6), which means it can have its own dedicated ISR vector INT6_vector.
+      Disable external interrupts for INT6 first.
+
+      Set INT6 bit low, preserve other bits
+
+               EIMSK = EIMSK & ~(1<<INT6);
+               EICRB |= ( 1 << ISC60 );
+               EIFR |= ( 1 << INTF6 );
+
+
+      Once INT6 interrupt is set up, enable the interrupt.
+
+      Set INT6 bit high, preserve other bits
+
+
+              EIMSK |= ( 1 << INT6 );
+
+
+    */
+
+
+
     count_e0 = 0;
 
     // Setup pins for right encoder 
@@ -217,6 +320,100 @@ void setupEncoder1()
 {
 
     count_e1 = 0;
+
+
+    /**
+      *
+      setupEncoder1 must be called before encoder 1 can be accessed (or nothing wil happen!).
+      
+       The 3Pi+ Arduino board uses the pin PE2 (port E, pin 2) which is very unconventional.  It doesn't have a standard
+      arduino alias (like d6, or a5, for example). It is set up here with direct register access.
+
+      Writing a 0 to a DDRE (Data Direction Register (Port)E) sets as input.
+
+      Pin PE2 is required, which means bit 2 (counting from 0).
+
+
+            PE Register bits [ 7  6  5  4  3  2  1  0 ]
+            Binary mask      [ 1  1  1  1  1  0  1  1 ]
+
+      By performing an & operation, the 0 sets low, all 1's preserve previous state.
+      
+      Impementation of above:
+
+
+            DDRE = DDRE & ~(1<<DDE6);
+
+      
+      Enable the pull up resistor for the pin. Once a pin is set up (as above), write a 1 to the bit in the output register.
+
+
+            PORTE = PORTE | (1 << PORTE2 );
+
+            pinMode( ENCODER_1_A_PIN, INPUT );
+
+            digitalWrite( ENCODER_1_A_PIN, HIGH ); // Encoder 1 xor
+
+      
+      Initialise the recorded state of e1 encoder.
+
+          
+            state_e1 = 0;
+
+
+      Get initial state of encoder.
+
+
+            boolean e1_B = PINE & (1<<PINE2);
+
+
+
+      Standard read from the other pin.
+
+
+             boolean e1_A = digitalRead( ENCODER_1_A_PIN ); // 26 the same as A8
+
+
+      Combine signals and perform XOR operation to restore true value:
+
+
+
+             e1_A = e1_A ^ e1_B;
+
+      
+      Shift values into correct place in state. Bits 1 and 0  are prior states.
+
+
+                state_e1 = state_e1 | ( e1_B << 1 );
+                state_e1 = state_e1 | ( e1_A << 0 );
+
+
+      Enable pin-change interrupt on A8 (PB4) for encoder0, and disable other
+      pin-change interrupts.
+      Note, this register will normally create an interrupt a change to any pins
+      on the port, but we use PCMSK0 to set it only for PCINT4 which is A8 (PB4)
+      When we set these registers, the compiler will now look for a routine called
+      ISR( PCINT0_vect ) when it detects a change on the pin.  PCINT0 seems like a
+      mismatch to PCINT4, however there is only the one vector servicing a change
+      to all PCINT0->7 pins.
+
+
+                PCICR = PCICR & ~( 1 << PCIE0 );
+                PCMSK0 |= (1 << PCINT4);
+                PCIFR |= (1 << PCIF0);
+
+
+      Finally, enable interrupt:
+
+
+               PCICR |= (1 << PCIE0);
+
+      
+
+
+
+    */
+
 
     // Setting up left encoder:
     // The Romi board uses the pin PE2 (port E, pin 2) which is
@@ -288,5 +485,5 @@ void setupEncoder1()
     // Enable
     PCICR |= (1 << PCIE0);
 }
-
+}
 #endif

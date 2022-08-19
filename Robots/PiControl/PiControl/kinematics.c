@@ -7,18 +7,20 @@
 
 #define WHEEL_RADIUS 0.017
 #define ROBOT_DIAMETER 0.09
-
+/* document*/
 // Class to track robot position.
 class Kinematics_c {
   public:
   
     // Constructor, must exist.
     Kinematics_c() {
-
+      /**
+      * Constructor for kinematics class
+      */
     } 
 
-    float count_wheel_left = 0;
-    float count_wheel_right = 0;
+    float count_wheel_left = 0;  /*!< Cumulative number of wheel encoder counts on the left wheel over lifetime */
+    float count_wheel_right = 0; /*!< Cumulative number of wheel encoder counts on the right wheel over lifetime */
 
     float count_wheel_left_temp = 0;
     float count_wheel_right_temp = 0;
@@ -57,7 +59,13 @@ class Kinematics_c {
     
     // Use this function to update
     // your kinematics
+    /* reset kinematics*/
     void resetKinematics(){
+
+      /**
+      * Resets all recorded kinematics properties to default values.
+      */
+
       count_wheel_left = 0;
       count_wheel_right = 0;
 
@@ -91,11 +99,22 @@ class Kinematics_c {
       displacement = 0;
     }
     void enableKinematics(){
+      /**
+      * Turns on kinematics utility. Enables local odometry on the 3Pi+
+      */
       recordKinematics = true;
     }
 
     
     void updateLoop() {
+
+
+      /**
+      * Kinematics update loop for the 3Pi+. Called once per update cycle at the end of the PiControl loop.
+      Reads volatile wheel encoder values for left and right motor to determine robot rotation and position.
+      */
+
+
       n ++;
       // get current time
       currentTime =  micros();
