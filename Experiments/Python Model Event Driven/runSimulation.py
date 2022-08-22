@@ -1,3 +1,8 @@
+
+""" Run Simulation is the main control loop for the agent and robot command simulation.
+
+  """
+
 from cv2 import AGAST_FEATURE_DETECTOR_NONMAX_SUPPRESSION
 import pygame
 import colours

@@ -3,7 +3,16 @@
 #include "kinematics.h"
 //#include <Zumo32U4.h>
 
+  /**
+      * PiControl contains behaviours for the 3Pi+ robots.
 
+      Pi Control is responsible for the robot's control loop and movement. It controls the motors to allow for movement.
+
+      Pi Control receives movement vector data via Wire from the M5 Stack.
+
+      
+
+      */
 
 class PiControl_c {
   public:

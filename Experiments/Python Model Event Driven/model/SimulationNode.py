@@ -3,6 +3,8 @@ Code description: Code is used to manage ROS publishers and subscribers for the 
 As a result of using a single node, the simulation node, only one ROS node needs to be polled to check for incoming messages.
 
 An instance of SimulationNode is instantiated on startup by runSimulation.
+
+Click the title in the menu subtree for method descriptions.
 """
 
 
@@ -94,7 +96,7 @@ class SimulationNode(Node):
             
             
             Parameters:
-            topic_name: Name of the topic to listen to. In normal operation, the name of the topic is '/robot{id}/pose' (without the {} braces).
+            topic_name: Name of the topic to listen to. In normal operation, the name of the topic is '/robot{id}/poses' (without the {} braces).
             
             controller_callback: The method to call once a message has been received. In normal operation, the method is Agent.AgentCallback in the Agent class. 
 
@@ -147,11 +149,58 @@ class SimulationNode(Node):
         return pub
 
     def CreateVectorPublisher(self, topic_name):
+
+        """ Creates a publisher responsible for pushing vector messages to a specified ROS topic.
+
+            Messages are of type geometry_msgs.msg.Vector3
+            
+            A Vector Publisher is created each time an agent is added to the simulation, unique to the agent.
+            
+            This is called in the initialisation method in the Agent.
+            
+            The vector publisher is responsible for publishing directional vectors to its corresponding robot to facilitate its movement.
+
+            The directional vectors are defined in the global frame, irrespective of the robot's current rotation.
+
+            Vector is packed with x and y components describing 2-D vector and z component describing the agent's current rotation.
+            
+            Parameters:
+            topic_name: Name of the topic to listen to. In normal operation, the name of the topic is '/robot{id}/vectors' (without the {} braces).
+            
+
+                        '/robot{id}/vectors' - used to send directional movement vectors to specified robot. 
+
+            """
+
+
+
         print("created publisher: " , topic_name)
         pub = self.create_publisher(Vector3, topic_name, 10)
         return pub
     
     def CreateColourPublisher(self, topic_name):
+
+        """ Creates a publisher responsible for pushing vector messages to a specified ROS topic.
+
+            Messages are of type std_msgs.msg.RGBA
+            
+            A Colour Publisher is created each time an agent is added to the simulation, unique to the agent.
+            
+            This is called in the initialisation method in the Agent.
+            
+            The colour publisher is responsible for publishing display colours to its corresponding robot to facilitate empowerment visulisation or to distinguish agent roles.  
+
+            The RGB values each range from 0 to 1, but the alpha channel is ignored.
+            
+            Parameters:
+            topic_name: Name of the topic to listen to. In normal operation, the name of the topic is '/robot{id}/colours' (without the {} braces).
+            
+
+                        '/robot{id}/colours' - used to RGBA colours to specified robot m5 Stack display.
+
+            """
+
+
         print("created publisher: " , topic_name)
         pub = self.create_publisher(ColorRGBA, topic_name, 10)
         return pub

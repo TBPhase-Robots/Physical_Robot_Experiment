@@ -1,3 +1,19 @@
+  /**
+      * Kinematics_c contains the odometry module used by PiControl
+
+      Kinematics_c polls the wheel motor encoders and can determine the robot's local pose (position and orientation).
+
+      This means the 3Pi+ knows how much to turn when given direction vectors.
+
+      This is advantageous when the camera data cannot always be relied upon.
+
+      
+
+      */
+
+
+
+
 // this #ifndef stops this file
 // from being included mored than
 // once by the compiler. 
@@ -19,18 +35,18 @@ class Kinematics_c {
       */
     } 
 
-    float count_wheel_left = 0;  /*!< Cumulative number of wheel encoder counts on the left wheel over lifetime */
-    float count_wheel_right = 0; /*!< Cumulative number of wheel encoder counts on the right wheel over lifetime */
+    float count_wheel_left = 0;  /*!< Cumulative number of wheel encoder counts on the left wheel over lifetime, excluding most recent poll */
+    float count_wheel_right = 0; /*!< Cumulative number of wheel encoder counts on the right wheel over lifetime, excluding most recent poll */
 
-    float count_wheel_left_temp = 0;
-    float count_wheel_right_temp = 0;
+    float count_wheel_left_temp = 0; /*!< Cumulative number of wheel encoder counts on the left wheel over lifetime, includiing most recent poll */
+    float count_wheel_right_temp = 0; /*!< Cumulative number of wheel encoder counts on the right wheel over lifetime, excluding most recent poll */
 
-    float count_difference_left = 0;
-    float count_difference_right = 0;
+    float count_difference_left = 0; /*!< Difference between count_wheel_left_temp and count_wheel_left. Equal to left wheel encoder counts since last poll. */
+    float count_difference_right = 0; /*!< Difference between count_wheel_right_temp and count_wheel_tight. Equal to right wheel encoder counts since last poll. */
 
     float count_difference_left_cum_mean = 0;
     float count_difference_right_cum_mean = 0;
-    float n = 0;
+    float n = 0; /*!< Number of encoder polls over lifetime */
     
     float x_global = 0;
     float y_global = 0;

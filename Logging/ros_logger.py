@@ -1,4 +1,14 @@
 
+
+
+""" ROS Logger is a diagnostic tool created to monitor the actions of robots and the the aruco tracker.
+
+It is currently used only by the wizard known as Jed.
+
+  """
+
+
+
 import rclpy
 from rclpy.node import Node
 from rclpy.publisher import Publisher

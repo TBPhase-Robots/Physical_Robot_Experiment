@@ -1,4 +1,16 @@
 
+
+"""Robot server is responsible for the setup and assignment of IDs to the 3Pi+ robots.
+
+It is not responsible for their behaviour.
+
+The robot server maintains a heartbeat ping with all robots to determine their life status.
+
+Click on an item in the navigation subtree for detailed method documentation.
+
+  """
+
+
 import sys
 sys.path.append('..')
 

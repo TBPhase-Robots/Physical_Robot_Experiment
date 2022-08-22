@@ -1,9 +1,23 @@
+
+  /**
+      * Encoders_c contains the encoder module used by PiControl
+
+      Encoders_c defines wheel motor interrupts to allow for wheel movements to be encoded.
+
+      Encoders_c is polled by the kinematics module each cycle of PiControl's update loop.
+      
+
+      */
+
+
+
 #ifndef _ENCODERS_H
 #define _ENCODERS_H
 
 #define ENCODER_0_A_PIN  7
 #define ENCODER_0_B_PIN  23
 #define ENCODER_1_A_PIN  26
+
 //#define ENCODER_1_B_PIN Non-standard pin!
 
 

@@ -1,3 +1,11 @@
+
+
+""" Displays information gathered by the ROS Logger.
+
+It is currently used only by the wizard known as Jed.
+
+  """
+
 from csv import Dialect
 import pipes
 from subprocess import Popen
@@ -44,6 +52,8 @@ class LoggerNode(Node):
 
 
 def main():
+
+    """ Displays all captured information in the logger node."""
     rclpy.init()
 
     logger = LoggerNode()
