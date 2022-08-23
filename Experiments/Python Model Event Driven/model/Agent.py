@@ -33,6 +33,8 @@ from geometry_msgs.msg import Pose, Vector3
 
 class Agent(pygame.sprite.Sprite):
 
+    data = []
+
     def delete(self):
         print("deleted agent", self.id)
         self.kill()
@@ -578,9 +580,13 @@ class Agent(pygame.sprite.Sprite):
 
         for dog in pack:
             print(f"other id: {dog.id}, self id: {self.id}")
+
+            direction = self.position - dog.position
+            magnitude = np.linalg.norm(direction)
+            magnitude *= cfg['distance_scaling_constant']
+
             if (dog.id != self.id):
-                F_D_D = np.add(F_D_D, (self.position - dog.position) /
-                               np.linalg.norm(self.position - dog.position))
+                F_D_D = np.add(F_D_D, direction / magnitude)
 
         F_D = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
         return F_D
@@ -612,8 +618,10 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         W = steering_point
 
-        R_C_D = (self.position - C) / np.linalg.norm(self.position - C)
-        R_C_W = (W - C) / np.linalg.norm(W - C)
+        print(cfg)
+        input('enter to continue')
+        R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
+        R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
 
         dot = np.dot(R_C_D, R_C_W)
         if (dot > 1):
@@ -622,7 +630,7 @@ class Agent(pygame.sprite.Sprite):
         if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0):
             theta_D_C_W = - theta_D_C_W
 
-        R_D_W = (W - self.position) / np.linalg.norm(W - self.position)
+        R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * cfg['distance_scaling_constant'])
         R_D_T = np.array([R_C_D[1], -R_C_D[0]])
 
         H_F = 1 - math.exp(-2 * abs(math.degrees(theta_D_C_W)))
@@ -631,7 +639,7 @@ class Agent(pygame.sprite.Sprite):
         sum = np.zeros(2)
         for sheep in flock:
             sum = np.add(sum, (self.position - sheep.position) /
-                         (2 * np.linalg.norm(self.position - sheep.position)))
+                         (2 * np.linalg.norm(self.position - sheep.position) * cfg['distance_scaling_constant']))
 
         F_F = H_F * sum
         F_W = R_D_W
@@ -681,11 +689,12 @@ class Agent(pygame.sprite.Sprite):
         print(self.id,"forwardX",forwardX)
         print(self.id,"forwardY",forwardY)
 
-        print(self.closest_dog)
+        print(self.id,"closest dog?",self.closest_dog)
         # if there is a dog within our vision range, do not exhibit grazing behaviour, RUN AWAY!
         if (self.closest_dog != None):
             print(self.id,"may be fleeing..")
             print(np.linalg.norm(self.position - self.closest_dog.position))
+            self.data.append(np.linalg.norm(self.position - self.closest_dog.position))
             print(self.position, self.closest_dog.position)
             print(cfg['sheep_vision_range'])
             if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
@@ -798,7 +807,7 @@ class Agent(pygame.sprite.Sprite):
                     else:
                         self.position = np.add(
                             self.position, self.grazing_direction)
-            input("stopping here - hit return to continue")
+            #input("stopping here - hit return to continue")
 
         # if the sheep is not grazing, exhibit the following behaviour:
         else:
@@ -885,7 +894,7 @@ class Agent(pygame.sprite.Sprite):
                 pygame.draw.line(screen, colours.RED, self.position, np.add(
                     self.position, 10 * cfg['sheep_attraction_to_sheep'] * F_G), 8)
 
-            input("also stopping here - hit return to continue")
+            #input("also stopping here - hit return to continue")
 
         collision_check = True
 
@@ -927,9 +936,9 @@ class Agent(pygame.sprite.Sprite):
         for dog in pack:
             direction = self.position - dog.position
             magnitude = np.linalg.norm(direction)
+            magnitude *= cfg['distance_scaling_constant']
             if (magnitude != 0):
-                sum += (direction / magnitude) * \
-                    math.exp(- cfg['lambda_D'] * magnitude)
+                sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude) 
         return sum
     # end function
 
@@ -939,9 +948,13 @@ class Agent(pygame.sprite.Sprite):
             if (sheep.id != self.id):
                 direction = self.position - sheep.position
                 magnitude = np.linalg.norm(direction)
+                magnitude *= cfg['distance_scaling_constant']
                 if (magnitude != 0):
-                    sum += (direction / magnitude) * \
-                        math.exp(- cfg['lambda_S'] * magnitude)
+                    sum += (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude)
+                    print("force: ", (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude))
+                else:
+                    print("force: 0")
+                print(sheep.id, "repels", self.id, "in direction", direction, "magnitude", magnitude, "running total:", sum)
         return sum
     # end function
 
@@ -950,8 +963,7 @@ class Agent(pygame.sprite.Sprite):
         for sheep in flock:
             if (sheep.id != self.id):
                 if not sheep_positions_ordered:
-                    sheep_positions_ordered.append(
-                        sheep.position)  # if list is empty
+                    sheep_positions_ordered.append(sheep.position)  # if list is empty
                 else:
                     for i in range(0, len(sheep_positions_ordered)):
                         if (np.linalg.norm(sheep.position - self.position) < np.linalg.norm(self.position - sheep_positions_ordered[i])):
@@ -961,9 +973,8 @@ class Agent(pygame.sprite.Sprite):
                             if (i == len(sheep_positions_ordered) - 1):
                                 sheep_positions_ordered.append(sheep.position)
 
-        social_group_positions = sheep_positions_ordered[:
-                                                         cfg['no_of_sheep_in_social_group']]
-        external_group_positions = sheep_positions_ordered[cfg['no_of_sheep_in_social_group']:]
+        social_group_positions = sheep_positions_ordered[ :cfg['no_of_sheep_in_social_group']]
+        external_group_positions = sheep_positions_ordered[cfg['no_of_sheep_in_social_group']: ]
 
         sheep_positons = []
         for sheep in flock:
@@ -980,12 +991,15 @@ class Agent(pygame.sprite.Sprite):
         if (cfg['lambda_G'] > 0):
             C_i_direction = C_i - self.position
             C_i_magnitude = np.linalg.norm(C_i_direction)
+            C_i_magnitude *= cfg['distance_scaling_constant']
+
             F_G = (cfg['lambda_G'] * (C_i_direction / C_i_magnitude)) + \
                 ((1 - cfg['lambda_G']) * (C_direction / C_magnitude))
         else:
             if (len(external_group_positions) > 0):
                 C_i_prime_direction = C_i_prime - self.position
                 C_i_prime_magnitude = np.linalg.norm(C_i_prime_direction)
+                C_i_prime_magnitude *= cfg['distance_scaling_constant']
                 F_G = (-cfg['lambda_G'] * (C_i_prime_direction / C_i_prime_magnitude)
                        ) + ((1 + cfg['lambda_G']) * (C_direction / C_magnitude))
             else:

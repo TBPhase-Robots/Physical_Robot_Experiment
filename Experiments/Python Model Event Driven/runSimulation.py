@@ -56,7 +56,7 @@ standby = pygame.sprite.Group()
 agents = pygame.sprite.Group()
 arena_corners = pygame.sprite.Group()
 
-config_name = 'defaultConfig'
+config_name = 'defaultConfig2'
 rclpy.init(args=None)
 # Define the simulation node globally
 # The simulation node is a single object with the responsibility of managing all ROS publishers and subscribers. It provides the interface to create new topic when needed.
@@ -72,6 +72,7 @@ with open(f"experiment_config_files/{config_name}.json") as json_file:
 if ('show_empowerment' not in cfg):
     cfg['show_empowerment'] = True
 
+print(cfg)
 
 # callback invoked by state controller to change the current config file
 def SetConfigCallback(data):
@@ -563,10 +564,10 @@ def main(show_empowerment=False):
         # cfg['event_driven'] is the flag that should be set to true when running the experiment with real robots
         # Only execute the state machine loop if we are running locally or if there is a new detected real world state
         if(sendUpdates or (not cfg['event_driven'])):
-            print("here we are")
+            # print("here we are")
             # ===================================== SETUP START==============================#
             if(state == "setup_start"):
-                print("and here we are also in set_up start")
+                # print("and here we are also in set_up start")
 
                 # we assume all agents are in standby position. Set all agents to standby:
                 SetAllAgentRolesToStandby()
@@ -638,7 +639,7 @@ def main(show_empowerment=False):
 
             # ===================================== SHEEP SETUP LOOP ===============================#
             if(state == "sheep_setup_loop"):
-                print("here we are in sheep setup loop")
+                #print("here we are in sheep setup loop")
 
                 # get the list of positions for sheep to move to
 
@@ -696,7 +697,7 @@ def main(show_empowerment=False):
                 pathfindingAgentId = 0
             # ===================================== PIG SETUP LOOP ===============================#
             if(state == "pig_setup_loop"):
-                print("here we are in pig setup")
+                #print("here we are in pig setup")
                 if(cfg['sequential_pathfinding']):
                     pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
                         pathfindingAgentId, pigs, agents, cfg, FollowPathDecision, cfg['pigsty_positions'])
@@ -705,7 +706,7 @@ def main(show_empowerment=False):
                         FollowPathDecision(agent=pig, path=pig.path, cfg=cfg)
             # ===================================== STANDBY SETUP START ===============================#
             if(state == "standby_setup_start"):
-                print("here we are in standby start")
+                #print("here we are in standby start")
                 i = 0
                 standbyPositions = cfg['standby_positions']
                 stationaryAgents = [flock, pigs, pack]
@@ -720,13 +721,13 @@ def main(show_empowerment=False):
                 pathfindingAgentId = 0
             # ===================================== STANDBY SETUP LOOP ===============================#
             if(state == "standby_setup_loop"):
-                print("here we are in standby loop")
+                #print("here we are in standby loop")
                 for agent in standby:
                     FollowPathDecision(agent=agent, path=agent.path, cfg=cfg)
             
             # ===================================== EXPERIMENT ===============================#
             elif(state == "experiment"):
-                print("here we are in experiment")
+                #print("here we are in experiment")
                 ExperimentUpdateTimestep(pack=pack, flock=flock,  cfg=cfg)
                 StandbySetupUpdateTimestep(agents=standby, cfg=cfg)
                 for pig in pigs:
