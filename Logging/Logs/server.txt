@@ -62,3 +62,18 @@ LOG: Publishing new robot
 LOG: Sending id: 21
 LOG: publishing marker for robot 21
 LOG: Publishing new robot
+LOG: Sending id: 22
+LOG: publishing marker for robot 22
+LOG: Publishing new robot
+LOG: Sending id: 23
+LOG: publishing marker for robot 23
+LOG: Publishing new robot
+LOG: Sending id: 24
+LOG: publishing marker for robot 24
+LOG: Publishing new robot
+LOG: Sending id: 25
+LOG: publishing marker for robot 25
+LOG: Publishing new robot
+LOG: Sending id: 26
+LOG: publishing marker for robot 26
+LOG: Publishing new robot

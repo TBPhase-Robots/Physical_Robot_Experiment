@@ -42,8 +42,6 @@
     "sheep_repulsion_from_sheep" : 5000,
     "sheep_attraction_to_sheep" : 1,
 
-    "distance_scaling_constant" : 0.1,
-
     "lambda_D" : 0.1,   
     "lambda_S" : 0.2,
     "lambda_G" : -1,

@@ -638,20 +638,20 @@ def main(show_empowerment=False):
 
 
             # ===================================== SHEEP SETUP LOOP ===============================#
-            if(state == "sheep_setup_loop"):
-                #print("here we are in sheep setup loop")
+            # if(state == "sheep_setup_loop"):
+            #     #print("here we are in sheep setup loop")
 
-                # get the list of positions for sheep to move to
+            #     # get the list of positions for sheep to move to
 
-                if(cfg['sequential_pathfinding']):
-                    pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
-                        pathfindingAgentId, flock, agents, cfg, FollowPathDecision, cfg['initial_sheep_positions'])
+            #     if(cfg['sequential_pathfinding']):
+            #         pathfindingAgentId = pathfindingManager.SequentialPathfindingStep(
+            #             pathfindingAgentId, flock, agents, cfg, FollowPathDecision, cfg['initial_sheep_positions'])
 
-                else:
-                    # simultaneous
-                    for sheep in flock:
-                        FollowPathDecision(
-                            agent=sheep, path=sheep.path, cfg=cfg)
+            #     else:
+            #         # simultaneous
+            #         for sheep in flock:
+            #             FollowPathDecision(
+            #                 agent=sheep, path=sheep.path, cfg=cfg)
 
             # ===================================== DOG SETUP START ===============================#
             if(state == "dog_setup_start"):
