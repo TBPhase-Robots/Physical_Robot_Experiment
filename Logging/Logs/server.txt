@@ -74,3 +74,9 @@ LOG: Publishing new robot
 LOG: Sending id: 25
 LOG: publishing marker for robot 25
 LOG: Publishing new robot
+LOG: Sending id: 26
+LOG: publishing marker for robot 26
+LOG: Publishing new robot
+LOG: Sending id: 27
+LOG: publishing marker for robot 27
+LOG: Publishing new robot
