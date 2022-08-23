@@ -30,7 +30,7 @@ from std_msgs.msg import String
 from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
-# Seth testing a push
+# test push by Seth
 
 class Agent(pygame.sprite.Sprite):
 
