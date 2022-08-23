@@ -2,12 +2,12 @@ LOG: Sending id: 0
 LOG: publishing marker for robot 0
 LOG: Publishing new robot
 LOG: Sending id: 1
+LOG: publishing marker for robot 1
+LOG: Publishing new robot
 LOG: Sending id: 2
 LOG: publishing marker for robot 2
 LOG: Publishing new robot
 LOG: Sending id: 3
-LOG: publishing marker for robot 3
-LOG: Publishing new robot
 LOG: Sending id: 4
 LOG: publishing marker for robot 4
 LOG: Publishing new robot
@@ -61,22 +61,4 @@ LOG: publishing marker for robot 20
 LOG: Publishing new robot
 LOG: Sending id: 21
 LOG: publishing marker for robot 21
-LOG: Publishing new robot
-LOG: Sending id: 22
-LOG: publishing marker for robot 22
-LOG: Publishing new robot
-LOG: Sending id: 23
-LOG: publishing marker for robot 23
-LOG: Publishing new robot
-LOG: Sending id: 24
-LOG: publishing marker for robot 24
-LOG: Publishing new robot
-LOG: Sending id: 25
-LOG: publishing marker for robot 25
-LOG: Publishing new robot
-LOG: Sending id: 26
-LOG: publishing marker for robot 26
-LOG: Publishing new robot
-LOG: Sending id: 27
-LOG: publishing marker for robot 27
 LOG: Publishing new robot

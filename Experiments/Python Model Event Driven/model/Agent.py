@@ -295,8 +295,7 @@ class Agent(pygame.sprite.Sprite):
             if (agent.id != self.id):
                 if (np.linalg.norm((self.position) - (agent.position)) < moveRepelDistance):
 
-                    F_A = cfg['agent_repulsion_from_agents'] * np.add(
-                        F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
+                    F_A = cfg['agent_repulsion_from_agents'] * np.add(F_A, (self.position - agent.position) / np.linalg.norm(self.position - agent.position))
 
         if (objectAvoidance):
             # F_A = (F_A / np.linalg.norm(F_A)) #* i
@@ -423,7 +422,7 @@ class Agent(pygame.sprite.Sprite):
         # calculate the force to drive towards the flock
         F_H = self.calc_F_H_Dog(screen, cfg, self.steering_point, flock)
         # calculate the repulsion force from other dogs
-        F_D = self.calc_F_D_Dog(pack)
+        F_D = self.calc_F_D_Dog(pack, cfg)
         # apply force coefficients from the configuration file
         F = (cfg['dog_forces_with_flock'] * F_H) + \
             (cfg['dog_repulsion_from_dogs'] * F_D)
@@ -575,7 +574,7 @@ class Agent(pygame.sprite.Sprite):
 
     # calculates dog-dog repulsion force vector
 
-    def calc_F_D_Dog(self, pack):
+    def calc_F_D_Dog(self, pack, cfg):
         F_D_D = np.zeros(2)
 
         for dog in pack:
@@ -618,8 +617,6 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         W = steering_point
 
-        print(cfg)
-        input('enter to continue')
         R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
         R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
 
