@@ -1073,6 +1073,6 @@ class Agent(pygame.sprite.Sprite):
             else:
                 F_G = 0
 
-        print("F_G",F_G,"is this in fact always zero?")
+        print("F_G",F_G,"is this in fact always zero? because lambda_G is negative and there are no 'external' sheep?")
         return F_G
     # end function
