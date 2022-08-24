@@ -34,7 +34,6 @@ from geometry_msgs.msg import Pose, Vector3
 
 class Agent(pygame.sprite.Sprite):
 
-    data = []
 
     def delete(self):
         print("deleted agent", self.id)
@@ -113,7 +112,7 @@ class Agent(pygame.sprite.Sprite):
     def CalcDistanceTo(self, other):
         vector = self.position - other.position
         rawDistance = np.linalg.norm(vector)
-        distance = raw_distance * self.distanceScale
+        distance = rawDistance * self.distanceScale
         if distance:
             unitVector = vector / distance
         else:
@@ -125,7 +124,7 @@ class Agent(pygame.sprite.Sprite):
     def CalcDistanceBetween(self, other1, other2):
         vector = other1.position - other2.position
         rawDistance = np.linalg.norm(vector)
-        distance = raw_distance * self.distanceScale
+        distance = rawDistance * self.distanceScale
         if distance:
             unitVector = vector / distance
         else:
@@ -151,7 +150,7 @@ class Agent(pygame.sprite.Sprite):
         # height ratio = worldheight / camera height
         self.heightRatio = self.worldHeight / self.cameraHeight
 
-        self.distanceScale = cfg['distance_scaling_constant'] # factor with which to rescale distances
+        self.distanceScale = newCfg['distance_scaling_constant'] # factor with which to rescale distances
 
         print("successfully changed config of agent ", self.id)
 
@@ -750,7 +749,7 @@ class Agent(pygame.sprite.Sprite):
             print(self.position, self.closest_dog.position)
             print(cfg['sheep_vision_range'])
 
-            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(closest_dog)  # [sgb] new call
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(self.closest_dog)  # [sgb] new call
             # if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
             if distance <= cfg['sheep_vision_range']:
                 self.grazing = False
