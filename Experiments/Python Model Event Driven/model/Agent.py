@@ -621,7 +621,7 @@ class Agent(pygame.sprite.Sprite):
 
             #direction = self.position - dog.position
             #magnitude = np.linalg.norm(direction)
-            #magnitude *= cfg['distance_scaling_constant']
+            #magnitude *= self.distanceScale
 
             #if (dog.id != self.id):
             #    F_D_D = np.add(F_D_D, direction / magnitude)
@@ -657,14 +657,14 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         W = steering_point
 
-        R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
-        R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
+        R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
+        R_C_W = (W - C) / (np.linalg.norm(W - C)* self.distanceScale)
 
-        # R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
+        # R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
         vector, rawDistance, distance, unitVector = self.CalcDistanceTo(C)  # [sgb] new call
         R_C_D = unitVector
 
-        # R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
+        # R_C_W = (W - C) / (np.linalg.norm(W - C) * self.distanceScale)
         vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, C)  # [sgb] new call
         R_C_W = unitVector
 
@@ -675,7 +675,7 @@ class Agent(pygame.sprite.Sprite):
         if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0):
             theta_D_C_W = - theta_D_C_W
 
-        # R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * cfg['distance_scaling_constant'])
+        # R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * self.distanceScale)
         vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, self.position)  # [sgb] new call
         R_D_W = unitVector
         R_D_T = np.array([R_C_D[1], -R_C_D[0]])
@@ -686,7 +686,7 @@ class Agent(pygame.sprite.Sprite):
         sum = np.zeros(2)
         for sheep in flock:
             #sum = np.add(sum, (self.position - sheep.position) /
-            #             (2 * np.linalg.norm(self.position - sheep.position) * cfg['distance_scaling_constant']))
+            #             (2 * np.linalg.norm(self.position - sheep.position) * self.distanceScale))
 
             vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep)  # [sgb] new call
             sum = np.add(sum, 0.5*unitVector)
@@ -992,7 +992,7 @@ class Agent(pygame.sprite.Sprite):
 
             #direction = self.position - dog.position
             #magnitude = np.linalg.norm(direction)
-            #magnitude *= cfg['distance_scaling_constant']
+            #magnitude *= self.distanceScale
             #if (magnitude != 0):
             #    sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude)
 
@@ -1009,7 +1009,7 @@ class Agent(pygame.sprite.Sprite):
             if (sheep.id != self.id):
                 #direction = self.position - sheep.position
                 #magnitude = np.linalg.norm(direction)
-                #magnitude *= cfg['distance_scaling_constant']
+                #magnitude *= self.distanceScale
                 #if (magnitude != 0):
                 #    sum += (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude)
                 #    print("force: ", (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude))
@@ -1058,7 +1058,7 @@ class Agent(pygame.sprite.Sprite):
         if (cfg['lambda_G'] > 0):
             C_i_direction = C_i - self.position
             C_i_magnitude = np.linalg.norm(C_i_direction)
-            C_i_magnitude *= cfg['distance_scaling_constant']
+            C_i_magnitude *= self.distanceScale
 
             F_G = (cfg['lambda_G'] * (C_i_direction / C_i_magnitude)) + \
                 ((1 - cfg['lambda_G']) * (C_direction / C_magnitude))
@@ -1066,7 +1066,7 @@ class Agent(pygame.sprite.Sprite):
             if (len(external_group_positions) > 0):
                 C_i_prime_direction = C_i_prime - self.position
                 C_i_prime_magnitude = np.linalg.norm(C_i_prime_direction)
-                C_i_prime_magnitude *= cfg['distance_scaling_constant']
+                C_i_prime_magnitude *= self.distanceScale
                 F_G = (-cfg['lambda_G'] * (C_i_prime_direction / C_i_prime_magnitude)
                        ) + ((1 + cfg['lambda_G']) * (C_direction / C_magnitude))
             else:
