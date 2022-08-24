@@ -30,8 +30,6 @@ from std_msgs.msg import String
 from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
-# test push by Seth 2.......
-
 class Agent(pygame.sprite.Sprite):
 
 
@@ -108,21 +106,23 @@ class Agent(pygame.sprite.Sprite):
     # end function
 
     # [sgb] calculates the vector from self to other
+    # other is assumed to be a numpy array
     # also calculates the raw distance, the rescaled distance and a unit vector
     def CalcDistanceTo(self, other):
-        vector = self.position - other.position
+        vector = self.position - other
         rawDistance = np.linalg.norm(vector)
         distance = rawDistance * self.distanceScale
         if distance:
-            unitVector = vector / distance
+            unitVector = vector / distance    # should this be rawDistance?
         else:
             unitVector = None
         return vector, rawDistance, distance, unitVector
 
     # [sgb] calculates the vector from other1 to other2
+    # other1 and other2 are assumed to be numpy arrays
     # also calculates the raw distance, the rescaled distance and a unit vector
     def CalcDistanceBetween(self, other1, other2):
-        vector = other1.position - other2.position
+        vector = other1 - other2
         rawDistance = np.linalg.norm(vector)
         distance = rawDistance * self.distanceScale
         if distance:
@@ -273,7 +273,7 @@ class Agent(pygame.sprite.Sprite):
 
         self.vectorPublisher.publish(vForce)
         pygame.draw.line(screen, colours.GREEN, self.position, np.add(
-            self.position, np.array([vForce.x, vForce.y])*70), 2)          # [sgb] what is the "*70" doing here?
+            self.position, np.array([vForce.x, vForce.y])*70), 2)          
       #  print("sending rotation ", vForce.z, " to robot ", self.id)
 
     def HaltAgentOverride(self, screen):
@@ -457,7 +457,7 @@ class Agent(pygame.sprite.Sprite):
         # calculate the force to drive towards the flock
         F_H = self.calc_F_H_Dog(screen, cfg, self.steering_point, flock)
         # calculate the repulsion force from other dogs
-        F_D = self.calc_F_D_Dog(pack, cfg)
+        F_D = self.calc_F_D_Dog(pack)
         # apply force coefficients from the configuration file
         F = (cfg['dog_forces_with_flock'] * F_H) + \
             (cfg['dog_repulsion_from_dogs'] * F_D)
@@ -616,7 +616,7 @@ class Agent(pygame.sprite.Sprite):
             print(f"other id: {dog.id}, self id: {self.id}")
 
             if (dog.id != self.id):
-                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog)  # [sgb] new call
+                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog.position)  # [sgb] new call
                 F_D_D = np.add(F_D_D, unitVector)
 
             #direction = self.position - dog.position
@@ -657,9 +657,6 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         W = steering_point
 
-        R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
-        R_C_W = (W - C) / (np.linalg.norm(W - C)* self.distanceScale)
-
         # R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
         vector, rawDistance, distance, unitVector = self.CalcDistanceTo(C)  # [sgb] new call
         R_C_D = unitVector
@@ -688,7 +685,7 @@ class Agent(pygame.sprite.Sprite):
             #sum = np.add(sum, (self.position - sheep.position) /
             #             (2 * np.linalg.norm(self.position - sheep.position) * self.distanceScale))
 
-            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep)  # [sgb] new call
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep.position)  # [sgb] new call
             sum = np.add(sum, 0.5*unitVector)
 
 
@@ -744,24 +741,24 @@ class Agent(pygame.sprite.Sprite):
         # if there is a dog within our vision range, do not exhibit grazing behaviour, RUN AWAY!
         if (self.closest_dog != None):
             # print(self.id,"may be fleeing..")
-            print(np.linalg.norm(self.position - self.closest_dog.position))
-            self.data.append(np.linalg.norm(self.position - self.closest_dog.position))
-            print(self.position, self.closest_dog.position)
-            print(cfg['sheep_vision_range'])
+            # print(np.linalg.norm(self.position - self.closest_dog.position))
+            #self.data.append(np.linalg.norm(self.position - self.closest_dog.position))
+            # print(self.position, self.closest_dog.position)
+            # print(cfg['sheep_vision_range'])
 
-            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(self.closest_dog)  # [sgb] new call
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(self.closest_dog.position)  # [sgb] new call
             # if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
             if distance <= cfg['sheep_vision_range']:
                 self.grazing = False
-                print("and",self.id,"is too close to a dog..")
-                print("so",self.id,"is fleeing..")
+                # print("and",self.id,"is too close to a dog..")
+                # print("so",self.id,"is fleeing..")
             else:
-                print("but",self.id,"is not close enough to a dog..")
-                print("so",self.id,"is grazing..")
+                # print("but",self.id,"is not close enough to a dog..")
+                # print("so",self.id,"is grazing..")
                 if (random.random() < 0.05):
                     self.grazing_direction = np.array(
                         [random.uniform(-3, 3), random.uniform(-3, 3)])
-                    print("..in a random direction",self.grazing_direction)
+                    # print("..in a random direction",self.grazing_direction)
                 self.grazing = True
                 if (cfg['event_driven']):
                     self.HaltAgent(screen=screen)
@@ -769,12 +766,12 @@ class Agent(pygame.sprite.Sprite):
         # if we are safe from dog agents, then graze
         else:
             self.grazing = True
-            print(self.id,"is grazing..")
+            # print(self.id,"is grazing..")
             if (random.random() < 0.05):
-                print(self.id,"randomly..")
+                # print(self.id,"randomly..")
                 self.grazing_direction = np.array(
                     [random.uniform(-3, 3), random.uniform(-3, 3)])
-                print(self.id, self.grazing_direction)
+                # print(self.id, self.grazing_direction)
  
         #print(f"sheep grazing: {self.grazing}, id: {self.id}")
 
@@ -996,8 +993,8 @@ class Agent(pygame.sprite.Sprite):
             #if (magnitude != 0):
             #    sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude)
 
-            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog)  # [sgb] new call
-            if unitVector:
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog.position)  # [sgb] new call
+            if unitVector.any() != None:
                 sum += unitVector * math.exp(-1 * distance * cfg['lambda_D'])
 
         return sum
@@ -1017,8 +1014,8 @@ class Agent(pygame.sprite.Sprite):
                 #    print("force: 0")
                 #print(sheep.id, "repels", self.id, "in direction", direction, "magnitude", magnitude, "running total:", sum)
 
-                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep)  # [sgb] new call
-                if unitVector:
+                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep.position)  # [sgb] new call
+                if unitVector.any() != None:
                     sum += unitVector * math.exp(-1 * distance * cfg['lambda_S'])
                 print(sheep.id, "repels", self.id, "in direction", vector, "magnitude", distance, "running total:", sum)
 
