@@ -57,6 +57,7 @@ class Agent(pygame.sprite.Sprite):
         self.cameraHeight = cfg['cam_height']
         self.worldWidth = cfg['world_width']
         self.worldHeight = cfg['world_height']
+        self.distanceScale = cfg['distance_scaling_constant'] # factor with which to rescale distances
         self.screen = screen
         self.lastRotation = rotation
         self.hasNewRotation = False
@@ -107,6 +108,31 @@ class Agent(pygame.sprite.Sprite):
 
     # end function
 
+    # [sgb] calculates the vector from self to other
+    # also calculates the raw distance, the rescaled distance and a unit vector
+    def CalcDistanceTo(self, other):
+        vector = self.position - other.position
+        rawDistance = np.linalg.norm(vector)
+        distance = raw_distance * self.distanceScale
+        if distance:
+            unitVector = vector / distance
+        else:
+            unitVector = None
+        return vector, rawDistance, distance, unitVector
+
+    # [sgb] calculates the vector from other1 to other2
+    # also calculates the raw distance, the rescaled distance and a unit vector
+    def CalcDistanceBetween(self, other1, other2):
+        vector = other1.position - other2.position
+        rawDistance = np.linalg.norm(vector)
+        distance = raw_distance * self.distanceScale
+        if distance:
+            unitVector = vector / distance
+        else:
+            unitVector = None
+        return vector, rawDistance, distance, unitVector
+
+
     def SetPath(self, path):
         self.path = path
         print("set path to ", self.path)
@@ -124,6 +150,8 @@ class Agent(pygame.sprite.Sprite):
 
         # height ratio = worldheight / camera height
         self.heightRatio = self.worldHeight / self.cameraHeight
+
+        self.distanceScale = cfg['distance_scaling_constant'] # factor with which to rescale distances
 
         print("successfully changed config of agent ", self.id)
 
@@ -207,7 +235,7 @@ class Agent(pygame.sprite.Sprite):
         forwardY = math.cos(self.rotation)
 
         radius = self.cfg['agent_radius']
-       # pygame.draw.line(self.screen, colours.RED, self.position, np.add(self.position, np.array([forwardX, -forwardY])*80) ,5)
+        # pygame.draw.line(self.screen, colours.RED, self.position, np.add(self.position, np.array([forwardX, -forwardY])*80) ,5)
 
         if (self.role == "dog"):
             pygame.draw.circle(screen, colours.BLUE,
@@ -232,6 +260,7 @@ class Agent(pygame.sprite.Sprite):
 
     # publishes a force to the agent's corresponding robot
     # the force is scaled to the screen space - camera space ratio
+    # [sgb] how is this scaling achieved? just by the "*70"?
     def PublishForceToTopic(self, force, screen):
         vForce = Vector3()
         # switched at some point
@@ -241,11 +270,11 @@ class Agent(pygame.sprite.Sprite):
 
         # since we have now updated the rotation of the robot, set to false
         self.hasNewRotation = False
-      #  print("publishing Vforce ", vForce, " to ", self.topicName)
+        #  print("publishing Vforce ", vForce, " to ", self.topicName)
 
         self.vectorPublisher.publish(vForce)
         pygame.draw.line(screen, colours.GREEN, self.position, np.add(
-            self.position, np.array([vForce.x, vForce.y])*70), 2)
+            self.position, np.array([vForce.x, vForce.y])*70), 2)          # [sgb] what is the "*70" doing here?
       #  print("sending rotation ", vForce.z, " to robot ", self.id)
 
     def HaltAgentOverride(self, screen):
@@ -261,6 +290,7 @@ class Agent(pygame.sprite.Sprite):
             self.PublishForceToTopic(np.array([0.0, 0.0]), screen)
             self.halted = True
 
+    # [sgb] is this called during the "assume your positions" phase?
     # called by the function MoveToPointDecision() in runSimulation.py
     # linearly moves agent (with obstacle avoidance) to point
     # MoveToPointDecision() and PathDecision() stops calling this when in a target range
@@ -335,6 +365,11 @@ class Agent(pygame.sprite.Sprite):
             pygame.draw.line(screen, colours.BLACK, self.position, np.add(
                 self.position, np.array(moveForce)), 4)
 
+    # [sgb] need to implement some "momentum" here
+    # perhaps outOfBounds should either be False (everything is fine)
+    # or be set to say 10 if the robot hits the boundary
+    # and then reduced by 1 each time step until it reaches 0
+    # so that the boundary_force applies for a few time steps?
     def calc_boundary_force(self, x, y, cfg):
         outOfBounds = False
         boundaryForce = np.zeros([2])
@@ -575,21 +610,25 @@ class Agent(pygame.sprite.Sprite):
     # end function
 
     # calculates dog-dog repulsion force vector
-
     def calc_F_D_Dog(self, pack):
         F_D_D = np.zeros(2)
 
         for dog in pack:
             print(f"other id: {dog.id}, self id: {self.id}")
 
-            direction = self.position - dog.position
-            magnitude = np.linalg.norm(direction)
-            magnitude *= cfg['distance_scaling_constant']
-
             if (dog.id != self.id):
-                F_D_D = np.add(F_D_D, direction / magnitude)
+                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog)  # [sgb] new call
+                F_D_D = np.add(F_D_D, unitVector)
 
-        F_D = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))
+            #direction = self.position - dog.position
+            #magnitude = np.linalg.norm(direction)
+            #magnitude *= cfg['distance_scaling_constant']
+
+            #if (dog.id != self.id):
+            #    F_D_D = np.add(F_D_D, direction / magnitude)
+
+
+        F_D = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))  # [sgb] why "0.75" in here?
         return F_D
     # end function
 
@@ -621,8 +660,14 @@ class Agent(pygame.sprite.Sprite):
 
         print(cfg)
         input('enter to continue')
-        R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
-        R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
+
+        # R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * cfg['distance_scaling_constant'])
+        vector, rawDistance, distance, unitVector = self.CalcDistanceTo(C)  # [sgb] new call
+        R_C_D = unitVector
+
+        # R_C_W = (W - C) / (np.linalg.norm(W - C)* cfg['distance_scaling_constant'])
+        vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, C)  # [sgb] new call
+        R_C_W = unitVector
 
         dot = np.dot(R_C_D, R_C_W)
         if (dot > 1):
@@ -631,7 +676,9 @@ class Agent(pygame.sprite.Sprite):
         if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0):
             theta_D_C_W = - theta_D_C_W
 
-        R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * cfg['distance_scaling_constant'])
+        # R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * cfg['distance_scaling_constant'])
+        vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, self.position)  # [sgb] new call
+        R_D_W = unitVector
         R_D_T = np.array([R_C_D[1], -R_C_D[0]])
 
         H_F = 1 - math.exp(-2 * abs(math.degrees(theta_D_C_W)))
@@ -639,8 +686,12 @@ class Agent(pygame.sprite.Sprite):
 
         sum = np.zeros(2)
         for sheep in flock:
-            sum = np.add(sum, (self.position - sheep.position) /
-                         (2 * np.linalg.norm(self.position - sheep.position) * cfg['distance_scaling_constant']))
+            #sum = np.add(sum, (self.position - sheep.position) /
+            #             (2 * np.linalg.norm(self.position - sheep.position) * cfg['distance_scaling_constant']))
+
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep)  # [sgb] new call
+            sum = np.add(sum, 0.5*unitVector)
+
 
         F_F = H_F * sum
         F_W = R_D_W
@@ -687,18 +738,21 @@ class Agent(pygame.sprite.Sprite):
         forwardX = math.sin(self.rotation)
         forwardY = math.cos(self.rotation)
 
-        print(self.id,"forwardX",forwardX)
-        print(self.id,"forwardY",forwardY)
+        # print(self.id,"forwardX",forwardX)
+        # print(self.id,"forwardY",forwardY)
 
-        print(self.id,"closest dog?",self.closest_dog)
+        # print(self.id,"closest dog?",self.closest_dog)
         # if there is a dog within our vision range, do not exhibit grazing behaviour, RUN AWAY!
         if (self.closest_dog != None):
-            print(self.id,"may be fleeing..")
+            # print(self.id,"may be fleeing..")
             print(np.linalg.norm(self.position - self.closest_dog.position))
             self.data.append(np.linalg.norm(self.position - self.closest_dog.position))
             print(self.position, self.closest_dog.position)
             print(cfg['sheep_vision_range'])
-            if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
+
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(closest_dog)  # [sgb] new call
+            # if (np.linalg.norm(self.position - self.closest_dog.position) <= cfg['sheep_vision_range']):
+            if distance <= cfg['sheep_vision_range']:
                 self.grazing = False
                 print("and",self.id,"is too close to a dog..")
                 print("so",self.id,"is fleeing..")
@@ -712,6 +766,7 @@ class Agent(pygame.sprite.Sprite):
                 self.grazing = True
                 if (cfg['event_driven']):
                     self.HaltAgent(screen=screen)
+
         # if we are safe from dog agents, then graze
         else:
             self.grazing = True
@@ -764,7 +819,7 @@ class Agent(pygame.sprite.Sprite):
                 print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
                 # if outside of the play area, add an overwhelming force to return back inside it
-                F = np.add(boundaryForce*40, F)
+                F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
                 print(self.id,"F = ",F, "(F_S * sheep_repulsion_from_sheep parameter + F_boundary)")
 
                 # publish F to topic
@@ -935,11 +990,17 @@ class Agent(pygame.sprite.Sprite):
     def calc_F_D_Sheep(self, pack, cfg):
         sum = np.zeros(2)
         for dog in pack:
-            direction = self.position - dog.position
-            magnitude = np.linalg.norm(direction)
-            magnitude *= cfg['distance_scaling_constant']
-            if (magnitude != 0):
-                sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude) 
+
+            #direction = self.position - dog.position
+            #magnitude = np.linalg.norm(direction)
+            #magnitude *= cfg['distance_scaling_constant']
+            #if (magnitude != 0):
+            #    sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude)
+
+            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog)  # [sgb] new call
+            if unitVector:
+                sum += unitVector * math.exp(-1 * distance * cfg['lambda_D'])
+
         return sum
     # end function
 
@@ -947,15 +1008,21 @@ class Agent(pygame.sprite.Sprite):
         sum = np.zeros(2)
         for sheep in flock:
             if (sheep.id != self.id):
-                direction = self.position - sheep.position
-                magnitude = np.linalg.norm(direction)
-                magnitude *= cfg['distance_scaling_constant']
-                if (magnitude != 0):
-                    sum += (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude)
-                    print("force: ", (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude))
-                else:
-                    print("force: 0")
-                print(sheep.id, "repels", self.id, "in direction", direction, "magnitude", magnitude, "running total:", sum)
+                #direction = self.position - sheep.position
+                #magnitude = np.linalg.norm(direction)
+                #magnitude *= cfg['distance_scaling_constant']
+                #if (magnitude != 0):
+                #    sum += (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude)
+                #    print("force: ", (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude))
+                #else:
+                #    print("force: 0")
+                #print(sheep.id, "repels", self.id, "in direction", direction, "magnitude", magnitude, "running total:", sum)
+
+                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep)  # [sgb] new call
+                if unitVector:
+                    sum += unitVector * math.exp(-1 * distance * cfg['lambda_S'])
+                print(sheep.id, "repels", self.id, "in direction", vector, "magnitude", distance, "running total:", sum)
+
         return sum
     # end function
 
@@ -1006,5 +1073,6 @@ class Agent(pygame.sprite.Sprite):
             else:
                 F_G = 0
 
+        print("F_G",F_G,"is this in fact always zero?")
         return F_G
     # end function
