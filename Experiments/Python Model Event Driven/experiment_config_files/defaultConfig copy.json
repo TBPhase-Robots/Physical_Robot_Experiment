@@ -29,7 +29,7 @@
 
     "target_position" : [695, 495],
 
-    "sheep_resulsion_from_dogs" : 30,
+    "sheep_repulsion_from_dogs" : 30,
     "sheep_repulsion_from_sheep" : 300,
     "sheep_attraction_to_sheep" : 1,
 

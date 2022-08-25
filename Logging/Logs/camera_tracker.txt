@@ -13264,3 +13264,69 @@ WARN: No publisher for robot152
 WARN: No publisher for robot152
 WARN: No publisher for robot152
 WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+LOG: removing robot: 29
+LOG: removing robot: 25
+LOG: removing robot: 28
+LOG: removing robot: 26
+LOG: removing robot: 27
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+WARN: No publisher for robot152
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+WARN: No publisher for robot152
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+LOG: new robot: 5
+LOG: new robot: 6
+LOG: new robot: 7
+LOG: new robot: 8
+LOG: new robot: 9
+WARN: No publisher for robot164
+LOG: new robot: 0
+LOG: new robot: 1
+LOG: new robot: 2
+LOG: new robot: 3
+LOG: new robot: 4
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152
+WARN: No publisher for robot152

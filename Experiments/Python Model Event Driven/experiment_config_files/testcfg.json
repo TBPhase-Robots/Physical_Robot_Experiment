@@ -33,7 +33,7 @@
 
     "agent_repulsion_from_agents" : 0.5,
 
-    "sheep_resulsion_from_dogs" : 500,
+    "sheep_repulsion_from_dogs" : 500,
     "sheep_repulsion_from_sheep" : 100,
     "sheep_attraction_to_sheep" : 1,
 

@@ -10,15 +10,15 @@
     "path_finding_width" : 50,
     "path_finding_height" : 30,
 
-    "use_arena_corner_markers" : true,
+    "use_arena_corner_markers" : false,
 
     "show_empowerment" : true,
 
     "cam_width" : 2.2,
     "cam_height" : 1.5,
 
-    "event_driven" : true,
-    "event_driven_lock_movements" : true,
+    "event_driven" : false,
+    "event_driven_lock_movements" : false,
 
     "debug_dog_forces" : true,
     "debug_sheep_forces" : true,
@@ -29,8 +29,8 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500], [600, 500], [400, 300]],
-    "initial_dog_positions" : [[150, 500], [150, 400]],
+    "initial_sheep_positions" : [[400, 500], [600, 500]],
+    "initial_dog_positions" : [],
     "standby_positions" : [[150, 100], [350, 100], [550, 100], [750, 100], [950, 100], [150, 175], [350, 175], [550, 175], [750, 175], [950, 175]],
     "pigsty_positions" : [[50, 50], [50, 200], [50, 350], [50, 500], [75, 650]], 
 
@@ -38,17 +38,17 @@
 
     "agent_repulsion_from_agents" : 1.7,
 
-    "sheep_resulsion_from_dogs" : 30,
-    "sheep_repulsion_from_sheep" : 300,
-    "sheep_attraction_to_sheep" : 1,
+    "sheep_repulsion_from_dogs" : 30,
+    "sheep_repulsion_from_sheep" : 100,
+    "sheep_attraction_to_sheep" : 30,
 
     "lambda_D" : 0.1,   
-    "lambda_S" : 0.6,
-    "lambda_G" : -1,
+    "lambda_S" : 0.2,
+    "lambda_G" : 0.1,
 
     "distance_scaling_constant" : 0.1,
 
-    "no_of_sheep_in_social_group" : 3,
+    "no_of_sheep_in_social_group" : 2,
     "sheep_vision_range" : 100,
     "grazing_movement_chance" : 0.3,
 
