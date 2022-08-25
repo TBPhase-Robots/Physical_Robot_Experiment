@@ -390,36 +390,35 @@ class Agent(pygame.sprite.Sprite):
     # or be set to say 10 if the robot hits the boundary
     # and then reduced by 1 each time step until it reaches 0
     # so that the boundary_force applies for a few time steps?
-    def calc_boundary_force(self, x, y, cfg):
+    # new simplified function.. needs checking...
+    def CalcBoundaryForce(self, cfg):
+        x, y = self.position
         outOfBounds = False
-        boundaryForce = np.zeros([2])
+        boundaryForce = np.ones([2])
 
         if 'corner_points' in cfg:
-            edge_top = cfg['corner_points'][1] - cfg['corner_points'][0]
-            if np.cross([x - cfg['corner_points'][0][0], y - cfg['corner_points'][0][1], 0], [edge_top[0], edge_top[1], 0])[2] > 0:
-                outOfBounds = True
-                edge_force = np.array([-edge_top[1], edge_top[0]])
-                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+            print("calculating boundary force!")
+            print(cfg['corner points'])
 
-            edge_right = cfg['corner_points'][2] - cfg['corner_points'][1]
-            if np.cross([x - cfg['corner_points'][1][0], y - cfg['corner_points'][1][1], 0], [edge_right[0], edge_right[1], 0])[2] > 0:
-                outOfBounds = True
-                edge_force = np.array([-edge_right[1], edge_right[0]])
-                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
-
-            edge_bottom = cfg['corner_points'][3] - cfg['corner_points'][2]
-            if np.cross([x - cfg['corner_points'][2][0], y - cfg['corner_points'][2][1], 0], [edge_bottom[0], edge_bottom[1], 0])[2] > 0:
-                outOfBounds = True
-                edge_force = np.array([-edge_bottom[1], edge_bottom[0]])
-                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
-
-            edge_left = cfg['corner_points'][0] - cfg['corner_points'][3]
-            if np.cross([x - cfg['corner_points'][3][0], y - cfg['corner_points'][3][1], 0], [edge_left[0], edge_left[1], 0])[2] > 0:
-                outOfBounds = True
-                edge_force = np.array([-edge_left[1], edge_left[0]])
-                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+            for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
+                boundary = cfg['corner_points'][corner1] - cfg['corner_points'][corner2]
+                print(corner1, corner2, boundary)
+                if np.cross([x - cfg['corner_points'][corner2][0], y - cfg['corner_points'][corner2][1], 0], [boundary[0], boundary[1], 0])[2] > 0:
+                    outOfBounds = True
+                    edgeForce = np.array([-boundary[1], boundary[0]])
+                    boundaryForce += 2.0 * edgeForce / np.linalg.norm(edgeForce)
+                    print(outOfBounds, edgeForce, boundarForce)
+                    boundaryForce += np.array([-getSign(boundary[1]), getSign(boundary[0])])
 
         return boundaryForce, outOfBounds
+
+    def getSign(self,value):
+        if value > 0:
+            return 1
+        elif value == 0:
+            return 0
+        else:
+            return -1
 
     # Function describes all normal dog behaviour for the agent
     # Called by runSimulation.py when in experiment state
@@ -769,9 +768,6 @@ class Agent(pygame.sprite.Sprite):
         if (random.random() < 0.05):
             self.grazing_direction = np.array([random.uniform(-3, 3), random.uniform(-3, 3)])
 
-        print("random value", random.uniform(-3,3))
-        print("grazing direction",self.grazing_direction[0], self.grazing_direction[1])
-
         if (cfg['event_driven']):
             self.HaltAgent(screen=screen)
 
@@ -806,16 +802,16 @@ class Agent(pygame.sprite.Sprite):
 
         # check for bounds outside of the play area
         # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
-        # x = self.position[0]
-        # y = self.position[1]
-        # playAreaLeftBound = cfg['play_area_x']
-        # playAreaTopBound = cfg['play_area_y']
+        x = self.position[0]
+        y = self.position[1]
+        playAreaLeftBound = cfg['play_area_x']
+        playAreaTopBound = cfg['play_area_y']
 
         # playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
         # playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-        # boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+        boundaryForce, outOfBounds = self.CalcBoundaryForce(x, y, cfg)
 
-        # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
+        print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
         # if outside of the play area, add an overwhelming force to return back inside it
         # F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
@@ -843,9 +839,6 @@ class Agent(pygame.sprite.Sprite):
             pygame.draw.line(screen, colours.BLUE, self.position, np.add(
                 self.position, np.array([forwardX, -forwardY])*30), 5)
 
-        #if np.linalg.norm(F) > 5:
-        #    self.position = np.add(self.position, F/np.linalg.norm(F))
-        
         self.position = np.add(self.position, F/np.linalg.norm(F))
         
         #move agents while running
@@ -877,7 +870,7 @@ class Agent(pygame.sprite.Sprite):
     def calc_Grazing_Force(self, direction, maxForce, decay):
         return direction * math.exp(-1 * maxForce * decay )
 
-    # Calculate the sum of forces acting due to the list of 'agents', using exponential decay constant 'decay'
+    # Calculate the sum of forces acting due to the list of 'agents', using the specified exponential decay constant and multiplier
     def calc_Force_On_Agent(self, agents, decay, multiplier):
         sumForce = np.zeros(2)
         maxForce = np.zeros(2)
@@ -1175,4 +1168,35 @@ class Agent(pygame.sprite.Sprite):
                 else:
                     pygame.draw.circle(screen, colours.BLACK, self.position, 4)
     # end function
+
+    def calc_boundary_force(self, x, y, cfg):
+        outOfBounds = False
+        boundaryForce = np.zeros([2])
+
+        if 'corner_points' in cfg:
+            edge_top = cfg['corner_points'][1] - cfg['corner_points'][0]
+            if np.cross([x - cfg['corner_points'][0][0], y - cfg['corner_points'][0][1], 0], [edge_top[0], edge_top[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_top[1], edge_top[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_right = cfg['corner_points'][2] - cfg['corner_points'][1]
+            if np.cross([x - cfg['corner_points'][1][0], y - cfg['corner_points'][1][1], 0], [edge_right[0], edge_right[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_right[1], edge_right[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_bottom = cfg['corner_points'][3] - cfg['corner_points'][2]
+            if np.cross([x - cfg['corner_points'][2][0], y - cfg['corner_points'][2][1], 0], [edge_bottom[0], edge_bottom[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_bottom[1], edge_bottom[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+            edge_left = cfg['corner_points'][0] - cfg['corner_points'][3]
+            if np.cross([x - cfg['corner_points'][3][0], y - cfg['corner_points'][3][1], 0], [edge_left[0], edge_left[1], 0])[2] > 0:
+                outOfBounds = True
+                edge_force = np.array([-edge_left[1], edge_left[0]])
+                boundaryForce += 2.0 * edge_force / np.linalg.norm(edge_force)
+
+        return boundaryForce, outOfBounds
 
