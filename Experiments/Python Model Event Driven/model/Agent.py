@@ -84,7 +84,7 @@ class Agent(pygame.sprite.Sprite):
         # sheep
         self.closest_dog = None
         self.grazing = True
-        self.grazing_direction = np.array([1, 0])
+        self.grazing_direction = np.array([random.uniform(-3, 3), random.uniform(-3, 3)])
 
         # ROS
         self.topicPoseName = f'/robot{id}/poses'
@@ -481,9 +481,8 @@ class Agent(pygame.sprite.Sprite):
         # calculate the repulsion force from other dogs
         F_D = self.calc_F_D_Dog(pack)
         # apply force coefficients from the configuration file
-        F = (cfg['dog_forces_with_flock'] * F_H) + \
-            (cfg['dog_repulsion_from_dogs'] * F_D)
-
+        F = (cfg['dog_forces_with_flock'] * F_H) + (cfg['dog_repulsion_from_dogs'] * F_D)
+        
         # check for bounds outside of the play area
         # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
         x = self.position[0]
@@ -494,6 +493,9 @@ class Agent(pygame.sprite.Sprite):
 
         # if outside of the play area, add an overwhelming force to return back inside it
         F = np.add(boundaryForce*40, F)
+
+        # just set the force to a small random vector
+        F = np.array([random.uniform(-3,3),random.uniform(-3,3)])
 
         if (F_D[0] > 0 and F_D[1] > 0):
             print(f"dog F_D: {F_D[0], F_D[1]}")
@@ -756,6 +758,152 @@ class Agent(pygame.sprite.Sprite):
 
     def SimulationUpdate_Sheep(self, screen, flock, pack, agents, cfg):
         self.halted = False
+
+        # calculate forward vector
+        forwardX = math.sin(self.rotation)
+        forwardY = math.cos(self.rotation)
+
+        print(self.id,"forwardX",forwardX)
+        print(self.id,"forwardY",forwardY)
+
+        if (random.random() < 0.05):
+            self.grazing_direction = np.array([random.uniform(-3, 3), random.uniform(-3, 3)])
+
+        print("random value", random.uniform(-3,3))
+        print("grazing direction",self.grazing_direction[0], self.grazing_direction[1])
+
+        if (cfg['event_driven']):
+            self.HaltAgent(screen=screen)
+
+        # TODO update grazing behaviour over network
+
+        print("Calculating Repulsion")
+        F_S, maxF_S = self.calc_Force_On_Agent(flock, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+        print("Calculating Coherence")
+        F_G, maxF_G = self.calc_Force_On_Agent(flock, cfg['lambda_Cohere'], cfg['sheep_attraction_to_sheep'])
+        print("Calculating Fleeing")
+        F_D, maxF_D = self.calc_Force_On_Agent(pack,  cfg['lambda_Flee'], cfg['sheep_repulsion_from_dogs'])
+
+        print(self.id,"F_S = ",F_S, maxF_S)
+        print(self.id,"F_G = ",F_G, maxF_G)
+        print(self.id,"F_D = ",F_D, maxF_D)
+
+        maxF = max([maxF_S, maxF_G, maxF_D])
+
+        print(self.id,"maxF = ",maxF)
+
+        F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
+
+        print(self.id,"F_Graze = ",F_Graze)
+
+        F = F_S + F_G + F_D + F_Graze
+        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_Graze)")
+
+        # TODO - grazing behavuour over network
+        # if(cfg['event_driven']):
+        #        self.HaltAgent(screen=screen)
+
+
+        # check for bounds outside of the play area
+        # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
+        # x = self.position[0]
+        # y = self.position[1]
+        # playAreaLeftBound = cfg['play_area_x']
+        # playAreaTopBound = cfg['play_area_y']
+
+        # playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
+        # playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
+        # boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+
+        # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
+
+        # if outside of the play area, add an overwhelming force to return back inside it
+        # F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
+        # print(self.id,"F = ",F, "(added F_boundary)")
+
+        # publish F to topic
+        #print("sheepForce: ",  F)
+        #print("sheepForce magnitude", np.linalg.norm(F))
+
+        if (cfg['debug_sheep_forces']):
+            #print(f"Force while grazing: {F[0]}, {F[1]}")
+            pygame.draw.line(screen, colours.PINK, self.position, np.add(self.position, 100 * F), 16)
+
+        self.PublishForceToTopic(F, screen)
+        print("Published!")
+
+        # calculate the angle between current sheep bearing and target sheep grazing direction
+        angle = self.CalcAngleBetweenVectors(np.array([forwardX, -forwardY]), self.grazing_direction)
+        print(self.id, "angle", angle)
+        if (cfg['realistic_agent_movement_markers']):
+            # black line is target rotation
+            pygame.draw.line(screen, colours.BLACK, self.position, np.add(
+                self.position, self.grazing_direction*5), 8)
+            # draw line in forward vector
+            pygame.draw.line(screen, colours.BLUE, self.position, np.add(
+                self.position, np.array([forwardX, -forwardY])*30), 5)
+
+        #if np.linalg.norm(F) > 5:
+        #    self.position = np.add(self.position, F/np.linalg.norm(F))
+        
+        self.position = np.add(self.position, F/np.linalg.norm(F))
+        
+        #move agents while running
+        if random.random()<0.05:
+            pos = input("stopping here - hit return to continue")
+            if ">" in pos:
+                self.position[0]+=int(pos.split(">")[1].strip())
+            elif "<" in pos:
+                self.position[0]-=int(pos.split("<")[1].strip())
+            elif "^" in pos:
+                self.position[1]-=int(pos.split("^")[1].strip())
+            elif "v" in pos:
+                 self.position[1]+=int(pos.split("v")[1].strip())
+
+        # super().update(screen)
+        if (cfg['debug_sheep_states']):
+            if (self.grazing):
+                pygame.draw.circle(screen, colours.GRAZE, self.position, 15)
+            else:
+                pygame.draw.circle(screen, colours.HERD, self.position, 15)
+
+    # end function
+
+    def set_closest_dog(self, dog):
+        self.closest_dog = dog
+    # end function
+
+    # Rescale the grazing force relative to the largest attraction/repulsion force that the agent is currently subject to
+    def calc_Grazing_Force(self, direction, maxForce, decay):
+        return direction * math.exp(-1 * maxForce * decay )
+
+    # Calculate the sum of forces acting due to the list of 'agents', using exponential decay constant 'decay'
+    def calc_Force_On_Agent(self, agents, decay, multiplier):
+        sumForce = np.zeros(2)
+        maxForce = np.zeros(2)
+        for agent in agents:
+            if self.id != agent.id:
+                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(agent.position, print_it=agent.id)
+                if distance:
+                    force = unitVector * math.exp(-1 * distance * decay)
+                    if np.linalg.norm(force) > np.linalg.norm(maxForce):
+                        maxForce = force.copy()
+                    sumForce += force
+                # print(agent.id, "influences", self.id, "in direction", vector, "magnitude", distance, "running total:", sumForce)
+
+        maxForce = abs(np.linalg.norm(maxForce) * multiplier)
+        sumForce = sumForce * multiplier
+
+        return sumForce, maxForce
+
+
+
+
+
+# OLD CODE
+
+    def SimulationUpdate_Sheep_Old(self, screen, flock, pack, agents, cfg):
+        self.halted = False
         # calculate forward vector
         forwardX = math.sin(self.rotation)
         forwardY = math.cos(self.rotation)
@@ -845,12 +993,12 @@ class Agent(pygame.sprite.Sprite):
 
                 playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
                 playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-                # boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+                boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
 
                 # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
                 # if outside of the play area, add an overwhelming force to return back inside it
-                # F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
+                F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
                 # print(self.id,"F = ",F, "(added F_boundary)")
 
                 # publish F to topic
@@ -941,12 +1089,12 @@ class Agent(pygame.sprite.Sprite):
             x = self.position[0]
             y = self.position[1]
 
-            # boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+            boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
             # if outside of the play area, add a force
             # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
             # if outside of the play area, add an overwhelming force to return back inside it
-            # F = np.add(boundaryForce*40, F)
+            F = np.add(boundaryForce*40, F)
             # print(self.id,"final F = ",F, "(original F + F_boundary)")
 
             # publish F to topic
@@ -1028,110 +1176,3 @@ class Agent(pygame.sprite.Sprite):
                     pygame.draw.circle(screen, colours.BLACK, self.position, 4)
     # end function
 
-    def set_closest_dog(self, dog):
-        self.closest_dog = dog
-    # end function
-
-    def calc_F_D_Sheep(self, pack, cfg):
-        sum = np.zeros(2)
-        for dog in pack:
-            if dog.id != self.id:
-            #direction = self.position - dog.position
-            #magnitude = np.linalg.norm(direction)
-            #magnitude *= self.distanceScale
-            #if (magnitude != 0):
-            #    sum += (direction / magnitude) * math.exp(- cfg['lambda_D'] * magnitude)
-
-                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(dog.position, print_it=dog.id)  # [sgb] new call
-                if distance:
-                    sum += unitVector * math.exp(-1 * distance * cfg['lambda_D'])
-
-        return sum
-    # end function
-
-    def calc_F_S_Sheep(self, flock, cfg):
-        sum = np.zeros(2)
-        for sheep in flock:
-            if (sheep.id != self.id):
-                #direction = self.position - sheep.position
-                #magnitude = np.linalg.norm(direction)
-                #magnitude *= self.distanceScale
-                #if (magnitude != 0):
-                #    sum += (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude)
-                #    print("force: ", (direction / magnitude) * math.exp(- cfg['lambda_S'] * magnitude))
-                #else:
-                #    print("force: 0")
-                #print(sheep.id, "repels", self.id, "in direction", direction, "magnitude", magnitude, "running total:", sum)
-
-                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep.position, print_it=sheep.id)  # [sgb] new call
-                if distance:
-                    sum += unitVector * math.exp(-1 * distance * cfg['lambda_S'])
-                print(sheep.id, "repels", self.id, "in direction", vector, "magnitude", distance, "running total:", sum)
-
-        return sum
-    # end function
-
-    def calc_F_G_Sheep_new(self, flock, cfg):
-        sum = np.zeros(2)
-        for sheep in flock:
-            if (sheep.id != self.id):
-                vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep.position, print_it=sheep.id)  # [sgb] new call
-                if distance:
-                    sum -= unitVector * math.exp(-1 * distance * cfg['lambda_G'])
-                print(sheep.id, "attracts", self.id, "in direction", vector, "magnitude", distance, "running total:", sum)
-
-        return sum
-    # end function
-
-
-
-    def calc_F_G_Sheep(self, flock, cfg):
-        sheep_positions_ordered = []
-        for sheep in flock:
-            if (sheep.id != self.id):
-                if not sheep_positions_ordered:
-                    sheep_positions_ordered.append(sheep.position)  # if list is empty
-                else:
-                    for i in range(0, len(sheep_positions_ordered)):
-                        if (np.linalg.norm(sheep.position - self.position) < np.linalg.norm(self.position - sheep_positions_ordered[i])):
-                            sheep_positions_ordered.insert(i, sheep.position)
-                            break
-                        else:
-                            if (i == len(sheep_positions_ordered) - 1):
-                                sheep_positions_ordered.append(sheep.position)
-
-        social_group_positions = sheep_positions_ordered[ :cfg['no_of_sheep_in_social_group']]
-        external_group_positions = sheep_positions_ordered[cfg['no_of_sheep_in_social_group']: ]
-
-        sheep_positons = []
-        for sheep in flock:
-            if (sheep.id != self.id):
-                sheep_positons.append(sheep.position)
-
-        C = Agent.calcCoM(self, sheep_positons)
-        C_i = Agent.calcCoM(self, social_group_positions)
-        C_i_prime = Agent.calcCoM(self, external_group_positions)
-
-        C_direction = C - self.position
-        C_magnitude = np.linalg.norm(C_direction)
-
-        if (cfg['lambda_G'] > 0):
-            C_i_direction = C_i - self.position
-            C_i_magnitude = np.linalg.norm(C_i_direction)
-            C_i_magnitude *= self.distanceScale
-
-            F_G = (cfg['lambda_G'] * (C_i_direction / C_i_magnitude)) + \
-                ((1 - cfg['lambda_G']) * (C_direction / C_magnitude))
-        else:
-            if (len(external_group_positions) > 0):
-                C_i_prime_direction = C_i_prime - self.position
-                C_i_prime_magnitude = np.linalg.norm(C_i_prime_direction)
-                C_i_prime_magnitude *= self.distanceScale
-                F_G = (-cfg['lambda_G'] * (C_i_prime_direction / C_i_prime_magnitude)
-                       ) + ((1 + cfg['lambda_G']) * (C_direction / C_magnitude))
-            else:
-                F_G = 0
-
-        print("F_G",F_G,"is this in fact always zero? because lambda_G is negative and there are no 'external' sheep?")
-        return F_G
-    
