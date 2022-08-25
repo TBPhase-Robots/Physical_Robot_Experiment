@@ -385,6 +385,14 @@ class Agent(pygame.sprite.Sprite):
             pygame.draw.line(screen, colours.BLACK, self.position, np.add(
                 self.position, np.array(moveForce)), 4)
 
+    def getSign(self, value):
+        if value > 0:
+            return +1
+        elif value == 0:
+            return 0
+        else:
+            return -1
+
     # [sgb] need to implement some "momentum" here
     # perhaps outOfBounds should either be False (everything is fine)
     # or be set to say 10 if the robot hits the boundary
@@ -394,11 +402,12 @@ class Agent(pygame.sprite.Sprite):
     def CalcBoundaryForce(self, cfg):
         x, y = self.position
         outOfBounds = False
-        boundaryForce = np.ones([2])
+        boundaryForce = np.zeros([2])
+        multiplier = 10.0
 
         if 'corner_points' in cfg:
             print("calculating boundary force!")
-            print(cfg['corner points'])
+            print(cfg['corner_points'])
 
             for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
                 boundary = cfg['corner_points'][corner1] - cfg['corner_points'][corner2]
@@ -406,19 +415,16 @@ class Agent(pygame.sprite.Sprite):
                 if np.cross([x - cfg['corner_points'][corner2][0], y - cfg['corner_points'][corner2][1], 0], [boundary[0], boundary[1], 0])[2] > 0:
                     outOfBounds = True
                     edgeForce = np.array([-boundary[1], boundary[0]])
-                    boundaryForce += 2.0 * edgeForce / np.linalg.norm(edgeForce)
-                    print(outOfBounds, edgeForce, boundarForce)
-                    boundaryForce += np.array([-getSign(boundary[1]), getSign(boundary[0])])
+                    boundaryForce += 10.0 * edgeForce / np.linalg.norm(edgeForce)
+                    print(outOfBounds, edgeForce, boundaryForce)
+                    # boundaryForce += np.array([self.getSign(-boundary[1]), self.getSign(boundary[0])])
 
+        print("outOfBounds",outOfBounds)
+        print("boundaryForce",boundaryForce)
+        #if outOfBounds:
+        #    input("!!")
         return boundaryForce, outOfBounds
 
-    def getSign(self,value):
-        if value > 0:
-            return 1
-        elif value == 0:
-            return 0
-        else:
-            return -1
 
     # Function describes all normal dog behaviour for the agent
     # Called by runSimulation.py when in experiment state
@@ -432,8 +438,7 @@ class Agent(pygame.sprite.Sprite):
             C = Agent.calcCoM(self, sheep_positions)
             furthest_sheep_position = C
             if (self.choice_tick_count == 0):
-                self.driving_point = np.add(
-                    C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
+                self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
                 for sheep in self.sub_flock:
                     if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
                         furthest_sheep_position = sheep.position
@@ -488,7 +493,7 @@ class Agent(pygame.sprite.Sprite):
         y = self.position[1]
 
         outOfBounds = False
-        boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+        boundaryForce, outOfBounds = self.CalcBoundaryForce(cfg)
 
         # if outside of the play area, add an overwhelming force to return back inside it
         F = np.add(boundaryForce*40, F)
@@ -784,7 +789,11 @@ class Agent(pygame.sprite.Sprite):
         print(self.id,"F_G = ",F_G, maxF_G)
         print(self.id,"F_D = ",F_D, maxF_D)
 
-        maxF = max([maxF_S, maxF_G, maxF_D])
+        F_B, outOfBounds = self.CalcBoundaryForce(cfg)
+
+        print(self.id,"F_boundary = ",F_B, outOfBounds)
+
+        maxF = max([maxF_S, maxF_G, maxF_D, np.linalg.norm(F_B)])
 
         print(self.id,"maxF = ",maxF)
 
@@ -792,8 +801,8 @@ class Agent(pygame.sprite.Sprite):
 
         print(self.id,"F_Graze = ",F_Graze)
 
-        F = F_S + F_G + F_D + F_Graze
-        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_Graze)")
+        F = F_S + F_G + F_D + F_B + F_Graze
+        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_B + F_Graze)")
 
         # TODO - grazing behavuour over network
         # if(cfg['event_driven']):
@@ -802,16 +811,11 @@ class Agent(pygame.sprite.Sprite):
 
         # check for bounds outside of the play area
         # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
-        x = self.position[0]
-        y = self.position[1]
         playAreaLeftBound = cfg['play_area_x']
         playAreaTopBound = cfg['play_area_y']
 
         # playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
         # playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-        boundaryForce, outOfBounds = self.CalcBoundaryForce(x, y, cfg)
-
-        print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
         # if outside of the play area, add an overwhelming force to return back inside it
         # F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
@@ -842,16 +846,16 @@ class Agent(pygame.sprite.Sprite):
         self.position = np.add(self.position, F/np.linalg.norm(F))
         
         #move agents while running
-        if random.random()<0.05:
-            pos = input("stopping here - hit return to continue")
-            if ">" in pos:
-                self.position[0]+=int(pos.split(">")[1].strip())
-            elif "<" in pos:
-                self.position[0]-=int(pos.split("<")[1].strip())
-            elif "^" in pos:
-                self.position[1]-=int(pos.split("^")[1].strip())
-            elif "v" in pos:
-                 self.position[1]+=int(pos.split("v")[1].strip())
+        # if random.random()<0.05:
+        #     pos = input("stopping here - hit return to continue")
+        #     if ">" in pos:
+        #         self.position[0]+=int(pos.split(">")[1].strip())
+        #     elif "<" in pos:
+        #         self.position[0]-=int(pos.split("<")[1].strip())
+        #     elif "^" in pos:
+        #         self.position[1]-=int(pos.split("^")[1].strip())
+        #     elif "v" in pos:
+        #          self.position[1]+=int(pos.split("v")[1].strip())
 
         # super().update(screen)
         if (cfg['debug_sheep_states']):
@@ -986,7 +990,7 @@ class Agent(pygame.sprite.Sprite):
 
                 playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
                 playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-                boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+                boundaryForce, outOfBounds = self.CalcBoundaryForce(cfg)
 
                 # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
@@ -1082,7 +1086,7 @@ class Agent(pygame.sprite.Sprite):
             x = self.position[0]
             y = self.position[1]
 
-            boundaryForce, outOfBounds = self.calc_boundary_force(x, y, cfg)
+            boundaryForce, outOfBounds = self.CalcBoundaryForce(cfg)
             # if outside of the play area, add a force
             # print(self.id,"F_boundary = ",boundaryForce, outOfBounds)
 
@@ -1174,6 +1178,7 @@ class Agent(pygame.sprite.Sprite):
         boundaryForce = np.zeros([2])
 
         if 'corner_points' in cfg:
+            print(cfg['corner_points'])
             edge_top = cfg['corner_points'][1] - cfg['corner_points'][0]
             if np.cross([x - cfg['corner_points'][0][0], y - cfg['corner_points'][0][1], 0], [edge_top[0], edge_top[1], 0])[2] > 0:
                 outOfBounds = True

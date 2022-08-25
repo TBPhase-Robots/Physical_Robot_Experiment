@@ -224,6 +224,12 @@ def DrawWorld(cfg):
         pygame.draw.rect(screen, colours.BLUE, pygame.Rect(
             cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
 
+        cfg['corner_points'] = [np.array([cfg['play_area_x'], cfg['play_area_y']]),
+                                np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y']]),
+                                np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y'] + cfg['play_area_height']]),
+                                np.array([cfg['play_area_x'], cfg['play_area_y']+cfg['play_area_height']])] 
+
+
     for pos in cfg['initial_sheep_positions']:
         pygame.draw.circle(screen, colours.WHITE, pos, 2)
 
