@@ -421,8 +421,8 @@ class Agent(pygame.sprite.Sprite):
 
         print("outOfBounds",outOfBounds)
         print("boundaryForce",boundaryForce)
-        #if outOfBounds:
-        #    input("!!")
+        if outOfBounds:
+            input("!!")
         return boundaryForce, outOfBounds
 
 
