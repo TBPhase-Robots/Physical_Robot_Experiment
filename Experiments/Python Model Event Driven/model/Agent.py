@@ -30,6 +30,7 @@ from std_msgs.msg import String
 from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
+
 class Agent(pygame.sprite.Sprite):
 
 
@@ -402,36 +403,38 @@ class Agent(pygame.sprite.Sprite):
     # and then reduced by 1 each time step until it reaches 0
     # so that the boundary_force applies for a few time steps?
     # new simplified function.. needs checking...
-    def CalcBoundaryForce(self, cfg):
+    def CalcBoundaryForce(self, cfg, corners = 'corner_points'):
         x, y = self.position
         newBoundaryForce = np.zeros([2])
         resetCounter = 10
-        multiplier = 10.0
+        multiplier = 50.0
+        maxF_B = 0
+        F_B = np.zeros([2])
 
-        if 'corner_points' in cfg:
+        if corners in cfg:
             print("calculating boundary force!")
-            print(cfg['corner_points'])
+            print(cfg[corners])
 
             for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
-                boundary = cfg['corner_points'][corner1] - cfg['corner_points'][corner2]
+                boundary = cfg[corners][corner1] - cfg[corners][corner2]
                 print(corner1, corner2, boundary)
-                if np.cross([x - cfg['corner_points'][corner2][0], y - cfg['corner_points'][corner2][1], 0],
+                if np.cross([x - cfg[corners][corner2][0], y - cfg[corners][corner2][1], 0],
                             [boundary[0], boundary[1], 0])[2] > 0:
                     self.outOfBounds = resetCounter
                     edgeForce = np.array([-boundary[1], boundary[0]])
                     newBoundaryForce += multiplier * edgeForce / np.linalg.norm(edgeForce)
-                    print(outOfBounds, edgeForce, boundarForce)
+                    print(self.outOfBounds, edgeForce, newBoundaryForce)
 
-        if self.outOfBounds==resetCounter:
-            self.boundaryForce = newBoundaryForce
-        self.outOfBounds -= 1
-        if self.outOfBounds < 0:
-            self.outOfBounds = 0
-            F_B = np.zeros([2])
-            max_FB = 0
-        else:
-            F_B = self.boundaryForce
-            maxF_B = np.linalg.norm(F_B)
+            if self.outOfBounds==resetCounter:
+                self.boundaryForce = newBoundaryForce
+
+            self.outOfBounds -= 1
+
+            if self.outOfBounds < 0:
+                self.outOfBounds = 0
+            else:
+                F_B = self.boundaryForce
+                maxF_B = np.linalg.norm(F_B)
 
         return F_B, maxF_B
 
@@ -439,6 +442,91 @@ class Agent(pygame.sprite.Sprite):
     # Function describes all normal dog behaviour for the agent
     # Called by runSimulation.py when in experiment state
     def SimulationUpdate_Dog(self, screen, flock, pack, agents, cfg):
+
+        self.halted = False
+        target = cfg['target_position']
+
+        sheep_positions = []
+        for sheep in flock:
+            sheep_positions.append(sheep.position)
+        C = Agent.calcCoM(self, sheep_positions)
+        furthest_sheep_position = C
+
+        if (len(self.sub_flock) > 0):
+            if (self.choice_tick_count == 0):
+                self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
+                for sheep in self.sub_flock:
+                    if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
+                        furthest_sheep_position = sheep.position
+                        self.target_sheep = sheep
+            try:
+                furthest_sheep_position = self.target_sheep.position
+            except:
+                furthest_sheep_position = C
+
+            # determine whether the dog should be driving or collecting:
+            # driving behaviour pushes flock towards goal
+            # collecting behaviour orbits flock and rounds up stragglers
+            if (self.choice_tick_count == 0):
+                if (np.linalg.norm(furthest_sheep_position - C) < cfg['collection_radius']):
+                    self.state = 'driving'
+                    self.steering_point = self.driving_point
+                else:
+                    self.state = 'collecting'
+                    self.steering_point = np.add(furthest_sheep_position, cfg['collection_distance_from_target_sheep'] * (
+                    furthest_sheep_position - C) / np.linalg.norm(furthest_sheep_position - C))
+            # steering point is the closest thing to moving towards a target point to which the agent should drive
+                
+        else:
+            self.state = 'unassigned'
+            if (self.choice_tick_count == 0):
+                for sheep in flock:
+                    if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
+                        furthest_sheep_position = sheep.position
+
+            outer_flock_radius_point = np.add(C, (np.linalg.norm(C - furthest_sheep_position) + 20) * ((C - target) / np.linalg.norm(C - target)))
+            self.steering_point = np.add(outer_flock_radius_point, cfg['driving_distance_from_flock_radius'] * ((C - target) / np.linalg.norm(C - target)))
+        
+        # calculate forward vector
+        forwardX = math.sin(self.rotation)
+        forwardY = math.cos(self.rotation)
+
+        F_D = 0
+
+        boundaryPoints = self.findNearestBoundaryPoints(cfg)
+
+        if boundaryPoints:
+            print("Calculating Boundary Repulsion")
+            F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+        else:
+            F_BR = np.zeros([2])
+            maxF_BR = 0
+        F = np.array([random.uniform(-50,50),random.uniform(-50,50)]) + F_BR
+
+        if (cfg['debug_dog_forces']):
+            pygame.draw.line(screen, colours.ORANGE, self.position, np.add(
+                self.position, 10 * cfg['dog_repulsion_from_dogs'] * F_D), 8)
+        if (cfg['debug_steering_points']):
+            pygame.draw.circle(screen, colours.BLACK, self.steering_point, 4)
+
+        if (cfg['realistic_agent_movement_markers']):
+            # black line is target rotation
+            pygame.draw.line(screen, colours.BLACK, self.position,
+                             np.add(self.position, np.array(F)*10), 8)
+            # draw line in forward vector
+            pygame.draw.line(screen, colours.BLUE, self.position, np.add(
+                self.position, np.array([forwardX, -forwardY])*80), 5)
+
+        # publish force to topic
+        self.PublishForceToTopic(F, screen)
+
+        self.position = np.add(self.position, F/np.linalg.norm(F))
+
+
+
+    # Function describes all normal dog behaviour for the agent
+    # Called by runSimulation.py when in experiment state
+    def SimulationUpdate_Dog_Old(self, screen, flock, pack, agents, cfg):
         self.halted = False
         target = cfg['target_position']
         if (len(self.sub_flock) > 0):
@@ -485,10 +573,8 @@ class Agent(pygame.sprite.Sprite):
                     if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
                         furthest_sheep_position = sheep.position
 
-            outer_flock_radius_point = np.add(C, (np.linalg.norm(
-                C - furthest_sheep_position) + 20) * ((C - target) / np.linalg.norm(C - target)))
-            self.steering_point = np.add(
-                outer_flock_radius_point, cfg['driving_distance_from_flock_radius'] * ((C - target) / np.linalg.norm(C - target)))
+            outer_flock_radius_point = np.add(C, (np.linalg.norm(C - furthest_sheep_position) + 20) * ((C - target) / np.linalg.norm(C - target)))
+            self.steering_point = np.add(outer_flock_radius_point, cfg['driving_distance_from_flock_radius'] * ((C - target) / np.linalg.norm(C - target)))
 
         # calculate the force to drive towards the flock
         F_H = self.calc_F_H_Dog(screen, cfg, self.steering_point, flock)
@@ -497,17 +583,11 @@ class Agent(pygame.sprite.Sprite):
         # apply force coefficients from the configuration file
         F = (cfg['dog_forces_with_flock'] * F_H) + (cfg['dog_repulsion_from_dogs'] * F_D)
         
-        # check for bounds outside of the play area
-        # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
-        x = self.position[0]
-        y = self.position[1]
+        F_B, maxF_B = self.CalcBoundaryForce(self, cfg, corners = 'world_corner_points')
 
-        outOfBounds = False
-        boundaryForce, outOfBounds = self.CalcBoundaryForce(cfg)
+        F = F_H + F_D + F_B
 
-        # if outside of the play area, add an overwhelming force to return back inside it
-        F = np.add(boundaryForce*40, F)
-
+        # temoprarily fix things so that the dogs just drift around
         # just set the force to a small random vector
         F = np.array([random.uniform(-3,3),random.uniform(-3,3)])
 
@@ -790,19 +870,28 @@ class Agent(pygame.sprite.Sprite):
 
         print("Calculating Repulsion")
         F_S, maxF_S = self.calc_Force_On_Agent(flock, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
-        print("Calculating Coherence")
+        print("Calculating Flocking")
         F_G, maxF_G = self.calc_Force_On_Agent(flock, cfg['lambda_Cohere'], cfg['sheep_attraction_to_sheep'])
         print("Calculating Fleeing")
         F_D, maxF_D = self.calc_Force_On_Agent(pack,  cfg['lambda_Flee'], cfg['sheep_repulsion_from_dogs'])
         print("Calculating Boundary Force")
         F_B, maxF_B = self.CalcBoundaryForce(cfg)
 
+        boundaryPoints = self.findNearestBoundaryPoints(cfg)
+        if boundaryPoints: #and self.outofBounds == 0:
+            print("Calculating Boundary Repulsion")
+            F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+        else:
+            F_BR = np.zeros([2])
+            maxF_BR = 0
+
         print(self.id,"F_S = ",F_S, maxF_S)
         print(self.id,"F_G = ",F_G, maxF_G)
         print(self.id,"F_D = ",F_D, maxF_D)
         print(self.id,"F_B = ",F_B, maxF_B)
+        print(self.id,"F_BR = ",F_BR, maxF_BR)
 
-        maxF = max([maxF_S, maxF_G, maxF_D, maxF_B])
+        maxF = max([maxF_S, maxF_G, maxF_D, maxF_B, maxF_BR])
 
         print(self.id,"maxF = ",maxF)
 
@@ -810,8 +899,8 @@ class Agent(pygame.sprite.Sprite):
 
         print(self.id,"F_Graze = ",F_Graze)
 
-        F = F_S + F_G + F_D + F_B + F_Graze
-        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_B + F_Graze)")
+        F = F_S + F_G + F_D + F_B + F_BR + F_Graze
+        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_B + F_BR + F_Graze)")
 
         # TODO - grazing behaviour over network
         # if(cfg['event_driven']):
@@ -826,17 +915,17 @@ class Agent(pygame.sprite.Sprite):
 
         self.position = np.add(self.position, F/np.linalg.norm(F))
         
-        #move agents while running
-        # if random.random()<0.05:
-        #     pos = input("stopping here - hit return to continue")
-        #     if ">" in pos:
-        #         self.position[0]+=int(pos.split(">")[1].strip())
-        #     elif "<" in pos:
-        #         self.position[0]-=int(pos.split("<")[1].strip())
-        #     elif "^" in pos:
-        #         self.position[1]-=int(pos.split("^")[1].strip())
-        #     elif "v" in pos:
-        #          self.position[1]+=int(pos.split("v")[1].strip())
+        # move agents while running
+        if random.random()<0.05:
+             pos = input("stopping here - hit return to continue")
+             if ">" in pos:
+                 self.position[0]+=int(pos.split(">")[1].strip())
+             elif "<" in pos:
+                 self.position[0]-=int(pos.split("<")[1].strip())
+             elif "^" in pos:
+                 self.position[1]-=int(pos.split("^")[1].strip())
+             elif "v" in pos:
+                  self.position[1]+=int(pos.split("v")[1].strip())
 
     # end function
 
@@ -867,8 +956,45 @@ class Agent(pygame.sprite.Sprite):
 
         return sumForce, maxForce
 
+    def findNearestBoundaryPoints(self, cfg, corners="corner_points"):
 
+        if corners in cfg:
 
+            class BoundaryPoint:
+                position = (None, None)
+                id = None
+
+            x, y = self.position
+
+            top = cfg[corners][0][1]
+            left = cfg[corners][0][0] 
+
+            bottom = cfg[corners][2][1]
+            right = cfg[corners][2][0]
+
+            bp1 = BoundaryPoint()
+            bp2 = BoundaryPoint()
+
+            if right-x>(right-left)/2:
+                bp1.id = "Left Boundary"
+                bp1.position = (left,y)
+            else:
+                bp1.id = "Right Boundary"
+                bp1.position = (right,y)
+
+            if bottom-x>(bottom-top)/2:
+                bp2.id = "Top Boundary"
+                bp2.position = (x,top)
+            else:
+                bp2.id = "Bottom Boundary"
+                bp2.position = (x,bottom)
+
+            boundaryPoints = [bp1, bp2]
+
+            return boundaryPoints
+
+        else:
+            return None
 
 
 # OLD CODE DEPRECATED
