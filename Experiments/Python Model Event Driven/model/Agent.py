@@ -63,6 +63,9 @@ class Agent(pygame.sprite.Sprite):
         self.hasNewRotation = False
         self.simulationNode = simulationNode
 
+        self.outOfBounds = False
+        self.boundaryForce = np.zeros([2])
+
         # pathfinding
         self.path = []
 
@@ -401,8 +404,8 @@ class Agent(pygame.sprite.Sprite):
     # new simplified function.. needs checking...
     def CalcBoundaryForce(self, cfg):
         x, y = self.position
-        outOfBounds = False
-        boundaryForce = np.zeros([2])
+        newBoundaryForce = np.zeros([2])
+        resetCounter = 10
         multiplier = 10.0
 
         if 'corner_points' in cfg:
@@ -412,18 +415,25 @@ class Agent(pygame.sprite.Sprite):
             for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
                 boundary = cfg['corner_points'][corner1] - cfg['corner_points'][corner2]
                 print(corner1, corner2, boundary)
-                if np.cross([x - cfg['corner_points'][corner2][0], y - cfg['corner_points'][corner2][1], 0], [boundary[0], boundary[1], 0])[2] > 0:
-                    outOfBounds = True
+                if np.cross([x - cfg['corner_points'][corner2][0], y - cfg['corner_points'][corner2][1], 0],
+                            [boundary[0], boundary[1], 0])[2] > 0:
+                    self.outOfBounds = resetCounter
                     edgeForce = np.array([-boundary[1], boundary[0]])
-                    boundaryForce += 10.0 * edgeForce / np.linalg.norm(edgeForce)
-                    print(outOfBounds, edgeForce, boundaryForce)
-                    # boundaryForce += np.array([self.getSign(-boundary[1]), self.getSign(boundary[0])])
+                    newBoundaryForce += multiplier * edgeForce / np.linalg.norm(edgeForce)
+                    print(outOfBounds, edgeForce, boundarForce)
 
-        print("outOfBounds",outOfBounds)
-        print("boundaryForce",boundaryForce)
-        if outOfBounds:
-            input("!!")
-        return boundaryForce, outOfBounds
+        if self.outOfBounds==resetCounter:
+            self.boundaryForce = newBoundaryForce
+        self.outOfBounds -= 1
+        if self.outOfBounds < 0:
+            self.outOfBounds = 0
+            F_B = np.zeros([2])
+            max_FB = 0
+        else:
+            F_B = self.boundaryForce
+            maxF_B = np.linalg.norm(F_B)
+
+        return F_B, maxF_B
 
 
     # Function describes all normal dog behaviour for the agent
@@ -784,16 +794,15 @@ class Agent(pygame.sprite.Sprite):
         F_G, maxF_G = self.calc_Force_On_Agent(flock, cfg['lambda_Cohere'], cfg['sheep_attraction_to_sheep'])
         print("Calculating Fleeing")
         F_D, maxF_D = self.calc_Force_On_Agent(pack,  cfg['lambda_Flee'], cfg['sheep_repulsion_from_dogs'])
+        print("Calculating Boundary Force")
+        F_B, maxF_B = self.CalcBoundaryForce(cfg)
 
         print(self.id,"F_S = ",F_S, maxF_S)
         print(self.id,"F_G = ",F_G, maxF_G)
         print(self.id,"F_D = ",F_D, maxF_D)
+        print(self.id,"F_B = ",F_B, maxF_B)
 
-        F_B, outOfBounds = self.CalcBoundaryForce(cfg)
-
-        print(self.id,"F_boundary = ",F_B, outOfBounds)
-
-        maxF = max([maxF_S, maxF_G, maxF_D, np.linalg.norm(F_B)])
+        maxF = max([maxF_S, maxF_G, maxF_D, maxF_B])
 
         print(self.id,"maxF = ",maxF)
 
@@ -804,44 +813,16 @@ class Agent(pygame.sprite.Sprite):
         F = F_S + F_G + F_D + F_B + F_Graze
         print(self.id,"F = ",F, "(F_S + F_G + F_D + F_B + F_Graze)")
 
-        # TODO - grazing behavuour over network
+        # TODO - grazing behaviour over network
         # if(cfg['event_driven']):
         #        self.HaltAgent(screen=screen)
 
-
-        # check for bounds outside of the play area
-        # the play area is a rectangle defined in the config file - it is a soft area in which sheep agents should try to remain inside.
-        playAreaLeftBound = cfg['play_area_x']
-        playAreaTopBound = cfg['play_area_y']
-
-        # playAreaRightBound = playAreaLeftBound + cfg['play_area_width']
-        # playAreaBottomBound = playAreaTopBound + cfg['play_area_height']
-
-        # if outside of the play area, add an overwhelming force to return back inside it
-        # F = np.add(boundaryForce*40, F)                        # [sgb] why "*40" here?
-        # print(self.id,"F = ",F, "(added F_boundary)")
-
-        # publish F to topic
-        #print("sheepForce: ",  F)
-        #print("sheepForce magnitude", np.linalg.norm(F))
-
         if (cfg['debug_sheep_forces']):
             #print(f"Force while grazing: {F[0]}, {F[1]}")
-            pygame.draw.line(screen, colours.PINK, self.position, np.add(self.position, 100 * F), 16)
+            pygame.draw.line(screen, colours.PINK, self.position, np.add(self.position, F), 16)
 
         self.PublishForceToTopic(F, screen)
         print("Published!")
-
-        # calculate the angle between current sheep bearing and target sheep grazing direction
-        angle = self.CalcAngleBetweenVectors(np.array([forwardX, -forwardY]), self.grazing_direction)
-        print(self.id, "angle", angle)
-        if (cfg['realistic_agent_movement_markers']):
-            # black line is target rotation
-            pygame.draw.line(screen, colours.BLACK, self.position, np.add(
-                self.position, self.grazing_direction*5), 8)
-            # draw line in forward vector
-            pygame.draw.line(screen, colours.BLUE, self.position, np.add(
-                self.position, np.array([forwardX, -forwardY])*30), 5)
 
         self.position = np.add(self.position, F/np.linalg.norm(F))
         
@@ -856,13 +837,6 @@ class Agent(pygame.sprite.Sprite):
         #         self.position[1]-=int(pos.split("^")[1].strip())
         #     elif "v" in pos:
         #          self.position[1]+=int(pos.split("v")[1].strip())
-
-        # super().update(screen)
-        if (cfg['debug_sheep_states']):
-            if (self.grazing):
-                pygame.draw.circle(screen, colours.GRAZE, self.position, 15)
-            else:
-                pygame.draw.circle(screen, colours.HERD, self.position, 15)
 
     # end function
 
@@ -897,7 +871,7 @@ class Agent(pygame.sprite.Sprite):
 
 
 
-# OLD CODE
+# OLD CODE DEPRECATED
 
     def SimulationUpdate_Sheep_Old(self, screen, flock, pack, agents, cfg):
         self.halted = False
