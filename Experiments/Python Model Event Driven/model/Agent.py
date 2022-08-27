@@ -65,7 +65,7 @@ class Agent(pygame.sprite.Sprite):
         self.simulationNode = simulationNode
 
         self.outOfBounds = False
-        self.boundaryForce = np.zeros([2])
+        self.returnForce = np.zeros([2])
 
         # pathfinding
         self.path = []
@@ -403,16 +403,16 @@ class Agent(pygame.sprite.Sprite):
     # and then reduced by 1 each time step until it reaches 0
     # so that the boundary_force applies for a few time steps?
     # new simplified function.. needs checking...
-    def CalcBoundaryForce(self, cfg, corners = 'corner_points'):
+    def CheckOutOfBounds(self, cfg, corners = 'corner_points'):
         x, y = self.position
-        newBoundaryForce = np.zeros([2])
+        newReturnForce = np.zeros([2])
         resetCounter = 10
         multiplier = 50.0
-        maxF_B = 0
-        F_B = np.zeros([2])
+        maxF_OOB = 0
+        F_OOB = np.zeros([2])
 
         if corners in cfg:
-            print("calculating boundary force!")
+            print("calculating out of bounds return force!")
             print(cfg[corners])
 
             for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
@@ -421,22 +421,22 @@ class Agent(pygame.sprite.Sprite):
                 if np.cross([x - cfg[corners][corner2][0], y - cfg[corners][corner2][1], 0],
                             [boundary[0], boundary[1], 0])[2] > 0:
                     self.outOfBounds = resetCounter
-                    edgeForce = np.array([-boundary[1], boundary[0]])
-                    newBoundaryForce += multiplier * edgeForce / np.linalg.norm(edgeForce)
-                    print(self.outOfBounds, edgeForce, newBoundaryForce)
+                    returnForce = np.array([-boundary[1], boundary[0]])
+                    newReturnForce += multiplier * edgeForce / np.linalg.norm(edgeForce)
+                    print(self.outOfBounds, returnForce, newReturnForce)
 
             if self.outOfBounds==resetCounter:
-                self.boundaryForce = newBoundaryForce
+                self.returnForce = newReturnForce
 
             self.outOfBounds -= 1
 
             if self.outOfBounds < 0:
                 self.outOfBounds = 0
             else:
-                F_B = self.boundaryForce
-                maxF_B = np.linalg.norm(F_B)
+                F_OOB = self.returnForce
+                maxF_OOB = np.linalg.norm(F_OOB)
 
-        return F_B, maxF_B
+        return F_OOB, maxF_OOB
 
 
     # Function describes all normal dog behaviour for the agent
@@ -583,9 +583,12 @@ class Agent(pygame.sprite.Sprite):
         # apply force coefficients from the configuration file
         F = (cfg['dog_forces_with_flock'] * F_H) + (cfg['dog_repulsion_from_dogs'] * F_D)
         
-        F_B, maxF_B = self.CalcBoundaryForce(self, cfg, corners = 'world_corner_points')
+        F_OOB, maxF_OOB = self.CheckOutOfBounds(self, cfg, corners = 'world_corner_points')
 
-        F = F_H + F_D + F_B
+        if maxF_OOB:
+            F = F_OOB
+        else:
+            F = F_H + F_D
 
         # temoprarily fix things so that the dogs just drift around
         # just set the force to a small random vector
@@ -868,39 +871,44 @@ class Agent(pygame.sprite.Sprite):
 
         # TODO update grazing behaviour over network
 
-        print("Calculating Repulsion")
-        F_S, maxF_S = self.calc_Force_On_Agent(flock, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
-        print("Calculating Flocking")
-        F_G, maxF_G = self.calc_Force_On_Agent(flock, cfg['lambda_Cohere'], cfg['sheep_attraction_to_sheep'])
-        print("Calculating Fleeing")
-        F_D, maxF_D = self.calc_Force_On_Agent(pack,  cfg['lambda_Flee'], cfg['sheep_repulsion_from_dogs'])
-        print("Calculating Boundary Force")
-        F_B, maxF_B = self.CalcBoundaryForce(cfg)
+        print("Checking if agent is Out of Bounds..")
+        F_OOB, maxF_OOB = self.CheckOutOfBounds(cfg)
 
-        boundaryPoints = self.findNearestBoundaryPoints(cfg)
-        if boundaryPoints: #and self.outofBounds == 0:
-            print("Calculating Boundary Repulsion")
-            F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
-        else:
-            F_BR = np.zeros([2])
-            maxF_BR = 0
+        if maxF_OOB:  # if agent is out of bounds, we just apply the return force
+            F = F_OOB
+            print(self.id,"F = ",F, "(F_OOB)")
 
-        print(self.id,"F_S = ",F_S, maxF_S)
-        print(self.id,"F_G = ",F_G, maxF_G)
-        print(self.id,"F_D = ",F_D, maxF_D)
-        print(self.id,"F_B = ",F_B, maxF_B)
-        print(self.id,"F_BR = ",F_BR, maxF_BR)
+        else:         # otherwise we calculate all the regular forces and combine them
+            print("Calculating Repulsion")
+            F_S, maxF_S = self.calc_Force_On_Agent(flock, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+            print("Calculating Flocking")
+            F_G, maxF_G = self.calc_Force_On_Agent(flock, cfg['lambda_Cohere'], cfg['sheep_attraction_to_sheep'])
+            print("Calculating Fleeing")
+            F_D, maxF_D = self.calc_Force_On_Agent(pack,  cfg['lambda_Flee'], cfg['sheep_repulsion_from_dogs'])
 
-        maxF = max([maxF_S, maxF_G, maxF_D, maxF_B, maxF_BR])
+            boundaryPoints = self.findNearestBoundaryPoints(cfg)
+            if boundaryPoints: #and self.outofBounds == 0:
+                print("Calculating Boundary Repulsion")
+                F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+            else:
+                F_BR = np.zeros([2])
+                maxF_BR = 0
 
-        print(self.id,"maxF = ",maxF)
+            print(self.id,"F_S = ",F_S, maxF_S)
+            print(self.id,"F_G = ",F_G, maxF_G)
+            print(self.id,"F_D = ",F_D, maxF_D)
+            print(self.id,"F_BR = ",F_BR, maxF_BR)
 
-        F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
+            maxF = max([maxF_S, maxF_G, maxF_D, maxF_BR])
 
-        print(self.id,"F_Graze = ",F_Graze)
+            print(self.id,"maxF = ",maxF)
 
-        F = F_S + F_G + F_D + F_B + F_BR + F_Graze
-        print(self.id,"F = ",F, "(F_S + F_G + F_D + F_B + F_BR + F_Graze)")
+            F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
+
+            print(self.id,"F_Graze = ",F_Graze)
+
+            F = F_S + F_G + F_D + F_BR + F_Graze
+            print(self.id,"F = ",F, "(F_S + F_G + F_D + F_BR + F_Graze)")
 
         # TODO - grazing behaviour over network
         # if(cfg['event_driven']):
@@ -939,56 +947,85 @@ class Agent(pygame.sprite.Sprite):
 
     # Calculate the sum of forces acting due to the list of 'agents', using the specified exponential decay constant and multiplier
     def calc_Force_On_Agent(self, agents, decay, multiplier):
+
+        forceResolutionLimit = 0.001    # this is the lower limit on overall force magnitude
+
+        # initialise the overall sum of the individuals forces and the maximum individual force
         sumForce = np.zeros(2)
         maxForce = np.zeros(2)
+
+        # loop through the set of influencing agents
         for agent in agents:
-            if self.id != agent.id:
+            if self.id != agent.id: # exclude self
+                # calc distance between self and agent
                 vector, rawDistance, distance, unitVector = self.CalcDistanceTo(agent.position, print_it=agent.id)
-                if distance:
+                if distance: # if the distance isn't zero (which implies unitVector is None)...
+                    # calculate the force as an exponentially decaying function of distance
                     force = unitVector * math.exp(-1 * distance * decay)
+                    # add it to the running total
+                    sumForce += force
+                    # if this force is the biggest seen so far, store it in maxForce
                     if np.linalg.norm(force) > np.linalg.norm(maxForce):
                         maxForce = force.copy()
-                    sumForce += force
                 # print(agent.id, "influences", self.id, "in direction", vector, "magnitude", distance, "running total:", sumForce)
 
+        # apply the multiplicative factor
         maxForce = abs(np.linalg.norm(maxForce) * multiplier)
         sumForce = sumForce * multiplier
 
+        # if the total force is very low, just set it to zero
+        if np.linalg.norm(sumForce)<forceReslutionLimit:
+            sumForce = np.zeros([2])
+            maxForce = 0
+
         return sumForce, maxForce
 
+
+    # return a list of two BoundaryPoint objects
+    # the first is the nearest point to the agent on the upper or lower boundary (whichever is nearest)
+    # the second is the nearest point to the agent on the left or right boundary (whichever is nearest)
+    # by default use "corner_points" to construct the boundary edges, but this can be overridden
+    # in order to use the corners of the world instead...
     def findNearestBoundaryPoints(self, cfg, corners="corner_points"):
 
-        if corners in cfg:
+        if corners in cfg: # if the rquired corner info is in the config data structure..
 
+            # define a class that has a position and id just like an Agent
+            # so that we can pass a list of them to the CalcDistanceTo method
             class BoundaryPoint:
                 position = (None, None)
                 id = None
 
+            # get the agent's own position
             x, y = self.position
 
+            # get the y values for the top and bottom edge, and the x values for the left and right edges
+            # from the appropriate corners
             top = cfg[corners][0][1]
             left = cfg[corners][0][0] 
 
             bottom = cfg[corners][2][1]
             right = cfg[corners][2][0]
 
+            # two boundary point objects...
             bp1 = BoundaryPoint()
             bp2 = BoundaryPoint()
 
-            if right-x>(right-left)/2:
+            if right-x>(right-left)/2:    # if agent is closest to left edge...
                 bp1.id = "Left Boundary"
                 bp1.position = (left,y)
             else:
-                bp1.id = "Right Boundary"
+                bp1.id = "Right Boundary" # otherwise..
                 bp1.position = (right,y)
 
-            if bottom-x>(bottom-top)/2:
+            if bottom-x>(bottom-top)/2:  # if agent is closest to top edge...
                 bp2.id = "Top Boundary"
                 bp2.position = (x,top)
             else:
-                bp2.id = "Bottom Boundary"
+                bp2.id = "Bottom Boundary" # otherwise
                 bp2.position = (x,bottom)
 
+            # return a list with the two boundary points in it
             boundaryPoints = [bp1, bp2]
 
             return boundaryPoints
