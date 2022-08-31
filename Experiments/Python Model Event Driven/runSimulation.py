@@ -192,6 +192,12 @@ def DrawWorld(cfg):
     pygame.draw.rect(screen, colours.RED, pygame.Rect(
         cfg['target_position'][0] - 100, cfg['target_position'][1] - 100, 200, 200), 3)
 
+    cfg['world_corner_points'] = [np.array([0, 0]),
+                                np.array([cfg['world_width'], 0]),
+                                np.array([cfg['world_width'], cfg['world_height']]),
+                                np.array([9, cfg['world_height']])] 
+
+
     if cfg['use_arena_corner_markers']:
         arena_corners.update(screen)
         points = []
