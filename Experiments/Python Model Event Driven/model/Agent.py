@@ -505,7 +505,9 @@ class Agent(pygame.sprite.Sprite):
 
         if maxF_OOB:
             F = F_OOB
-        
+
+        F = np.array([0,0])
+
         self.PublishForceToTopic(F, screen)
         print("Published!")
 
