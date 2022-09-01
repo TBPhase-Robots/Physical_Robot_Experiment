@@ -74,7 +74,7 @@ class ArucoTrack(Node):
         self.cam.set(cv2.CAP_PROP_FPS, 60)
 
         # set up ArUco settings and parameters
-        self.aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
+        self.aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
         self.parameters = aruco.DetectorParameters_create()
 
         self.active_robots = []

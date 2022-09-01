@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 
-aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
+aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
 
 # Outputs a binary representation of an aruco marker
 def marker_to_int(marker_id):
@@ -61,3 +61,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
