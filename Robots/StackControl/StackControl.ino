@@ -147,7 +147,7 @@ void error_loop() {
 }
 
 // Draws an aruco marker to the screen
-void drawMarker(u_int64_t data, uint32_t background) {
+void drawMarker(u_int32_t data, uint32_t background) {
   M5.lcd.clear();
 
   int size = HEIGHT / 8;
@@ -161,8 +161,8 @@ void drawMarker(u_int64_t data, uint32_t background) {
                   background);
 
   // Read the binary encoding of the marker and draw it to the screen
-    for (u_int64_t i = 0; i < 16; i++) {
-    bool white = (data & ((u_int64_t)1 << i)) != 0;
+    for (u_int32_t i = 0; i < 16; i++) {
+    bool white = (data & ((u_int32_t)1 << i)) != 0;
 
     int x = side_inset + (i % 4 + 2) * size;
     int y = (i / 4 + 2) * size;

@@ -13,10 +13,12 @@ aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
 # Outputs a binary representation of an aruco marker
 def marker_to_int(marker_id):
     # Creates the marker
-    img = aruco.drawMarker(aruco_dict, marker_id, 8)
+    img = aruco.drawMarker(aruco_dict, marker_id, 6)
 
     # Rotates the marker, to compensate for the stack being rotated on the robots
     cv2.rotate(img, ROTATE_180, img)
+
+    plt.imshow(img, cmap = mpl.cm.gray, interpolation = "nearest")
 
     output = 0
     shift = 0
@@ -33,11 +35,12 @@ def marker_to_int(marker_id):
             # Moves to the next bit of the output
             shift += 1
 
+
     return output
 
 def main():
     # The id of the marker to display
-    marker_id = 103
+    marker_id = 101
 
     # Creates a matplotlib plot
     fig = plt.figure()
