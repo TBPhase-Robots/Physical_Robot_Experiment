@@ -147,7 +147,7 @@ void error_loop() {
 }
 
 // Draws an aruco marker to the screen
-void drawMarker(u_int32_t data, uint32_t background) {
+void drawMarkerSmall(u_int32_t data, uint32_t background) {
   M5.lcd.clear();
 
   int size = HEIGHT / 8;
@@ -176,6 +176,64 @@ void drawMarker(u_int32_t data, uint32_t background) {
   sprintf(s, "%d", id);
   M5.lcd.drawString(s, 0, 0);
 }
+
+
+// Draws an aruco marker to the screen
+void drawMarker(u_int32_t data, uint32_t background) {
+  M5.lcd.clear();
+
+  int size = HEIGHT / 7;
+  int side_inset = (WIDTH - HEIGHT) / 2;
+
+  // Draw borders in the background colour
+  M5.lcd.fillRect(0, 0, WIDTH, size/2, background);
+  M5.lcd.fillRect(0, 0, side_inset+(size/2), HEIGHT, background);
+  M5.lcd.fillRect(0, HEIGHT - (size/2), WIDTH, size/2, background);
+  M5.lcd.fillRect(WIDTH - side_inset - (size/2), 0, side_inset+(size/2), HEIGHT, background);
+
+  // Read the binary encoding of the marker and draw it to the screen
+    for (u_int32_t i = 0; i < 16; i++) {
+    bool white = (data & ((u_int32_t)1 << i)) != 0;
+
+    int x = side_inset + (i % 4 + 1.5) * size;
+    int y = (i / 4 + 1.5) * size;
+    if (white) {
+      M5.lcd.fillRect(x, y, size, size, WHITE);
+    }
+  }
+
+  // Print the robot id
+  char s[32];
+  sprintf(s, "%d", id);
+  M5.lcd.drawString(s, 0, 0);
+}
+
+
+//  Draws a large thingy marker to the screen
+void drawMarkerTemp(u_int32_t data, uint32_t background) {
+  M5.lcd.clear();
+
+  int size = HEIGHT / 4; //used to be 10
+  int side_inset = (WIDTH - HEIGHT) / 2;
+  //borders = side_inset / 2;
+  
+  //M5.lcd.fillRect(0, 0, WIDTH, size, background); # horizontal top border
+//  M5.lcd.fillRect(0, 0, size + side_inset, HEIGHT, background);  # vertical left border
+//
+//  M5.lcd.fillRect(0, HEIGHT - size, WIDTH, size, background); # horizontal bottom border
+//  M5.lcd.fillRect(WIDTH - size - side_inset, 0, size + side_inset, HEIGHT, background); # vertical right border
+
+  for (u_int32_t i = 0; i < 16; i++) {
+    bool white = (data & ((u_int32_t)1 << i)) != 0;
+
+    int x = side_inset + (i % 4 ) * size;
+    int y = (i / 4 ) * size;
+    if (white) {
+      M5.lcd.fillRect(x, y, size, size, WHITE);
+    }
+  }
+}
+
 
 // Handles vector messages recieved from a ROS subscription
 void vector_callback(const void* msgin) {

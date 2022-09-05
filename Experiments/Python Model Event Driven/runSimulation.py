@@ -42,7 +42,7 @@ from model.PathfindingManager import PathfindingManager
 
 state = "standby_setup_loop"
 postedUpdates = 0
-sendUpdates = False
+sendUpdates = False        
 
 robot_dog_speed = 0
 robot_pig_speed = 0
@@ -197,7 +197,6 @@ def DrawWorld(cfg):
                                 np.array([cfg['world_width'], cfg['world_height']]),
                                 np.array([9, cfg['world_height']])] 
 
-
     if cfg['use_arena_corner_markers']:
         arena_corners.update(screen)
         points = []
@@ -217,15 +216,20 @@ def DrawWorld(cfg):
             points = top_points + bottom_points
 
             for i in range(1, 5):
-                text_surface = my_font.render(f"{i}", False, (0, 0, 0))
+                text_surface = my_font.render(f"{i}:{int(points[i-1][0])},{int(points[i-1][1])}", False, (0, 0, 0))
                 screen.blit(text_surface, points[i-1])
 
             cfg['corner_points'] = points
-        
             pygame.draw.line(screen, colours.BLUE, points[0], points[1], 3)
             pygame.draw.line(screen, colours.BLUE, points[1], points[2], 3)
             pygame.draw.line(screen, colours.BLUE, points[2], points[3], 3)
             pygame.draw.line(screen, colours.BLUE, points[3], points[0], 3)
+        else:        
+            cfg['corner_points'] = [np.array([cfg['play_area_x'], cfg['play_area_y']]),
+                                    np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y']]),
+                                    np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y'] + cfg['play_area_height']]),
+                                    np.array([cfg['play_area_x'], cfg['play_area_y']+cfg['play_area_height']])] 
+
     else:
         pygame.draw.rect(screen, colours.BLUE, pygame.Rect(
             cfg['play_area_x'], cfg['play_area_y'], cfg['play_area_width'], cfg['play_area_height']), 3)
@@ -234,6 +238,24 @@ def DrawWorld(cfg):
                                 np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y']]),
                                 np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y'] + cfg['play_area_height']]),
                                 np.array([cfg['play_area_x'], cfg['play_area_y']+cfg['play_area_height']])] 
+
+    offset = 100
+    offsets = [np.array([-offset,-offset]),
+               np.array([+offset,-offset]),
+               np.array([+offset,+offset]), 
+               np.array([-offset,+offset])]
+    cfg['outer_corner_points'] = [cfg['corner_points'][i] +offsets[i] for i in range(len(points))]        
+
+    pygame.draw.line(screen, colours.RED, cfg['outer_corner_points'][0], cfg['outer_corner_points'][1], 3)
+    pygame.draw.line(screen, colours.RED, cfg['outer_corner_points'][1], cfg['outer_corner_points'][2], 3)
+    pygame.draw.line(screen, colours.RED, cfg['outer_corner_points'][2], cfg['outer_corner_points'][3], 3)
+    pygame.draw.line(screen, colours.RED, cfg['outer_corner_points'][3], cfg['outer_corner_points'][0], 3)
+
+    for i in range(1, 5):
+        text_surface = my_font.render(f"{i}:{int(cfg['outer_corner_points'][i-1][0])},{int(cfg['outer_corner_points'][i-1][1])}", False, (0, 0, 0))
+        screen.blit(text_surface, cfg['outer_corner_points'][i-1])
+
+
 
 
     for pos in cfg['initial_sheep_positions']:

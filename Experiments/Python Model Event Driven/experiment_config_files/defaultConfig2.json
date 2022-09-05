@@ -29,7 +29,7 @@
     
     "empowerment_type" : 1,
 
-    "initial_sheep_positions" : [[400, 500], [600, 500], [400, 300]],
+    "initial_sheep_positions" : [[400, 500], [600, 500]],
     "initial_dog_positions" : [[150, 500], [150, 400]],
     "standby_positions" : [[150, 100], [350, 100], [550, 100], [750, 100], [950, 100], [150, 175], [350, 175], [550, 175], [750, 175], [950, 175]],
     "pigsty_positions" : [[50, 50], [50, 200], [50, 350], [50, 500], [75, 650]], 
@@ -38,8 +38,9 @@
 
     "agent_repulsion_from_agents" : 1.7,
 
-    "sheep_repulsion_from_dogs" : 30,
-    "sheep_repulsion_from_sheep" : 100,
+    "boundary_repulsion" : 50,
+    "sheep_repulsion_from_dogs" : 150,
+    "sheep_repulsion_from_sheep" : 150,
     "sheep_attraction_to_sheep" : -30,
 
     "lambda_Flee" : 0.15,   
@@ -47,9 +48,9 @@
     "lambda_Cohere" : 0.1,
     "lambda_Graze" : 0.1,
 
-    "distance_scaling_constant" : 0.2,
+    "distance_scaling_constant" : 0.15,
 
-    "no_of_sheep_in_social_group" : 3,
+    "no_of_sheep_in_social_group" : 2,
     "sheep_vision_range" : 100,
     "grazing_movement_chance" : 0.3,
 

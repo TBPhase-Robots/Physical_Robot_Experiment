@@ -406,11 +406,10 @@ class Agent(pygame.sprite.Sprite):
     def CheckOutOfBounds(self, cfg, corners = 'corner_points'):
         x, y = self.position
         newReturnForce = np.zeros([2])
-        resetCounter = 10
-        multiplier = 100.0
+        resetCounter = 2
+        multiplier = 10.0
         maxF_OOB = 0
         F_OOB = np.zeros([2])
-        edgeForce = 1
 
         if corners in cfg:
             print("calculating out of bounds return force!")
@@ -418,12 +417,13 @@ class Agent(pygame.sprite.Sprite):
 
             for corner1, corner2 in [(1,0), (2, 1), (3, 2), (0,3)]:
                 boundary = cfg[corners][corner1] - cfg[corners][corner2]
+                print(boundary)
                 print(corner1, corner2, boundary)
                 if np.cross([x - cfg[corners][corner2][0], y - cfg[corners][corner2][1], 0],
                             [boundary[0], boundary[1], 0])[2] > 0:
                     self.outOfBounds = resetCounter
                     returnForce = np.array([-boundary[1], boundary[0]])
-                    newReturnForce += multiplier * edgeForce / np.linalg.norm(edgeForce)
+                    newReturnForce += multiplier * returnForce / np.linalg.norm(returnForce)
                     print(self.outOfBounds, returnForce, newReturnForce)
 
             if self.outOfBounds==resetCounter:
@@ -495,18 +495,52 @@ class Agent(pygame.sprite.Sprite):
         if self.state == 'driving':
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(C, self.position, print_it=False)
             F = unitVector*20
-        elif self.state == 'collecting':
+        else: # self.state == 'collecting':
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(furthest_sheep_position, self.position, print_it=False)
             F = unitVector*20
-        else:
-            F = np.array([random.uniform(-10,10), random.uniform(-10,10)])
-        
-        F_OOB, maxF_OOB = self.CheckOutOfBounds(cfg)
+        # else:
+        #     F = np.array([random.uniform(-10,10), random.uniform(-10,10)])
+        for sheep in flock:
+            vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, sheep.position)
+            if abs(distance) <= 20:
+                F = -F
+        # F = np.array([random.uniform(-0.01,0.01), random.uniform(-0.01,0.01)])
 
-        if maxF_OOB:
+        for dog in pack:
+            vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, dog.position)
+            if self.id != dog.id and distance <= 20:
+                F += -unitVector*5
+        # sumForce, maxForce = self.calc_Force_On_Agent(pack, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+        # F += sumForce
+
+        F_OOB, maxF_OOB = self.CheckOutOfBounds(cfg, corners = 'outer_corner_points')
+
+        if self.outOfBounds:
             F = F_OOB
+            print(self.id,"F = ",F, "(F_OOB)")
+            #input("Dog OOB!!")
+        else:
+            boundaryPoints = self.findNearestBoundaryPoints(cfg, corners = "outer_corner_points")
+            if boundaryPoints: #and self.outofBounds == 0:
+                print("Calculating Boundary Repulsion")
+                F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['boundary_repulsion'])
+            else:
+                F_BR = np.zeros([2])
+                maxF_BR = 0
 
-        F = np.array([0.0,0.0])
+            maxF = max([maxF_BR])
+
+            print(self.id,"maxF = ",maxF)
+
+            F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
+            F_Graze = np.array([random.uniform(-0.01,0.01), random.uniform(-0.01,0.01)])
+
+            print(self.id,"F_Graze = ",F_Graze)
+
+            F = F + F_BR + F_Graze
+
+            print(self.id,"F = ",F, "(F_BR + F_Graze)")
+
 
         self.PublishForceToTopic(F, screen)
         print("Published!")
@@ -575,7 +609,7 @@ class Agent(pygame.sprite.Sprite):
         # apply force coefficients from the configuration file
         F = (cfg['dog_forces_with_flock'] * F_H) + (cfg['dog_repulsion_from_dogs'] * F_D)
         
-        F_OOB, maxF_OOB = self.CheckOutOfBounds(self, cfg, corners = 'world_corner_points')
+        F_OOB, maxF_OOB = self.CheckOutOfBounds(self, cfg, corners = 'outer_corner_points')
 
         if maxF_OOB:
             F = F_OOB
@@ -866,9 +900,10 @@ class Agent(pygame.sprite.Sprite):
         print("Checking if agent is Out of Bounds..")
         F_OOB, maxF_OOB = self.CheckOutOfBounds(cfg)
 
-        if maxF_OOB:  # if agent is out of bounds, we just apply the return force
+        if self.outOfBounds:  # if agent is out of bounds, we just apply the return force
             F = F_OOB
             print(self.id,"F = ",F, "(F_OOB)")
+            #input("Sheep OOB!!")
 
         else:         # otherwise we calculate all the regular forces and combine them
             print("Calculating Repulsion")
@@ -881,7 +916,7 @@ class Agent(pygame.sprite.Sprite):
             boundaryPoints = self.findNearestBoundaryPoints(cfg)
             if boundaryPoints: #and self.outofBounds == 0:
                 print("Calculating Boundary Repulsion")
-                F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+                F_BR, maxF_BR = self.calc_Force_On_Agent(boundaryPoints,  cfg['lambda_Repel'], cfg['boundary_repulsion'])
             else:
                 F_BR = np.zeros([2])
                 maxF_BR = 0
@@ -985,7 +1020,7 @@ class Agent(pygame.sprite.Sprite):
             # define a class that has a position and id just like an Agent
             # so that we can pass a list of them to the CalcDistanceTo method
             class BoundaryPoint:
-                position = (None, None)
+                position = [None, None]
                 id = None
 
             # get the agent's own position
