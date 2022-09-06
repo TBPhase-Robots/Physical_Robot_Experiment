@@ -500,6 +500,7 @@ class Agent(pygame.sprite.Sprite):
             F = unitVector*20
         # else:
         #     F = np.array([random.uniform(-10,10), random.uniform(-10,10)])
+        
         for sheep in flock:
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, sheep.position)
             if abs(distance) <= 20:
@@ -509,10 +510,10 @@ class Agent(pygame.sprite.Sprite):
         for dog in pack:
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, dog.position)
             if self.id != dog.id and distance <= 20:
-                F += -unitVector*5
-        # sumForce, maxForce = self.calc_Force_On_Agent(pack, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
-        # F += sumForce
-
+                #F += -unitVector*5
+                sumForce, maxForce = self.calc_Force_On_Agent(pack, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
+                F += sumForce
+        
         F_OOB, maxF_OOB = self.CheckOutOfBounds(cfg, corners = 'outer_corner_points')
 
         if self.outOfBounds:
