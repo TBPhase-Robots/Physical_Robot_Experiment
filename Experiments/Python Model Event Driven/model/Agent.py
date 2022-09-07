@@ -1,4 +1,4 @@
-from cmath import pi
+from cmath import nan, pi
 from turtle import forward
 import pygame
 import colours
@@ -30,6 +30,9 @@ from std_msgs.msg import String
 from model.SimulationNode import SimulationNode
 from geometry_msgs.msg import Pose, Vector3
 
+from pygame import font
+pygame.font.init() # you have to call this at the start, 
+my_font = pygame.font.SysFont('Comic Sans MS', 30)
 
 class Agent(pygame.sprite.Sprite):
 
@@ -122,7 +125,7 @@ class Agent(pygame.sprite.Sprite):
         if distance:
             unitVector = vector / distance    # should this be rawDistance?
         else:
-            unitVector = None
+            unitVector = np.array([0.001,0.001])
         if print_it:
             try:
                 print("      id:", self.id,       " othr id:", print_it,  sep="\t")
@@ -144,7 +147,7 @@ class Agent(pygame.sprite.Sprite):
         if distance:
             unitVector = vector / distance
         else:
-            unitVector = None
+            unitVector = np.array([0.001,0.001])
         if print_it:
             try:
                 #print(self.id, print_it, other1, other2, vector, rawDistance, distance, unitVector)
@@ -456,7 +459,11 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         furthest_sheep_position = C
 
-        if (len(self.sub_flock) > 0):
+        if len(self.sub_flock)==1:
+            self.state = 'driving'
+            self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
+            self.steering_point = self.driving_point
+        elif (len(self.sub_flock) > 1):
             if (self.choice_tick_count == 0):
                 self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
                 for sheep in self.sub_flock:
@@ -492,14 +499,20 @@ class Agent(pygame.sprite.Sprite):
             self.steering_point = np.add(outer_flock_radius_point, cfg['driving_distance_from_flock_radius'] * ((C - target) / np.linalg.norm(C - target)))
            
        
-        if self.state == 'driving':
-            vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(C, self.position, print_it=False)
-            F = unitVector*20
-        else: # self.state == 'collecting':
-            vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(furthest_sheep_position, self.position, print_it=False)
-            F = unitVector*20
+        # if self.state == 'driving':
+        #     vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(C, self.position, print_it=False)
+        #     F = unitVector*20
+        # else: # self.state == 'collecting':
+        #     vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(furthest_sheep_position, self.position, print_it=False)
+        #     F = unitVector*20
+
         # else:
         #     F = np.array([random.uniform(-10,10), random.uniform(-10,10)])
+        print('dog is:', self.state)
+        #input('')
+        F_H = self.calc_F_H_Dog(screen, cfg, self.steering_point, flock)
+        # apply force coefficients from the configuration file
+        F = (cfg['dog_forces_with_flock'] * F_H)
         
         for sheep in flock:
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, sheep.position)
@@ -510,7 +523,9 @@ class Agent(pygame.sprite.Sprite):
         for dog in pack:
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, dog.position)
             if self.id != dog.id and distance <= 20:
-                #F += -unitVector*5
+                # linear model:
+                # F += -unitVector*5
+                #exponential model:
                 sumForce, maxForce = self.calc_Force_On_Agent(pack, cfg['lambda_Repel'], cfg['sheep_repulsion_from_sheep'])
                 F += sumForce
         
@@ -541,6 +556,17 @@ class Agent(pygame.sprite.Sprite):
             F = F + F_BR + F_Graze
 
             print(self.id,"F = ",F, "(F_BR + F_Graze)")
+
+        if (cfg['debug_steering_points']):
+            pygame.draw.circle(screen, colours.BLACK, self.steering_point, 8)
+            
+            text_surface = my_font.render(f"{self.id}:steering", False, (0, 0, 0))
+            screen.blit(text_surface, self.steering_point)
+
+            if self.state == 'driving':
+                pygame.draw.circle(screen, colours.BLACK, self.driving_point, 8)
+                text_surface = my_font.render(f"{self.id}:driving", False, (0, 0, 0))
+                screen.blit(text_surface, self.driving_point)
 
 
         self.PublishForceToTopic(F, screen)
@@ -804,29 +830,38 @@ class Agent(pygame.sprite.Sprite):
                 sheep_positions.append(sheep.position)
 
         if len(sheep_positions) == 0:
-            return np.zeros(2)
+            return np.array([0.001,0.001])
 
         C = Agent.calcCoM(self, sheep_positions)
+        print('C=', C)
         W = steering_point
-
-        # R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
-        vector, rawDistance, distance, unitVector = self.CalcDistanceTo(C, print_it=True)  # [sgb] new call
-        R_C_D = unitVector
+        print('W=',W)
+        #R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
+        vector, rawDistance, distance, unitVector1 = self.CalcDistanceTo(C, print_it=True)  # [sgb] new call
+        R_C_D = unitVector1 * self.distanceScale #unit vector from COM of sheep to dog position
+        print('RCD=', R_C_D)
 
         # R_C_W = (W - C) / (np.linalg.norm(W - C) * self.distanceScale)
-        vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, C, print_it=True)  # [sgb] new call
-        R_C_W = unitVector
+        vector, rawDistance, distance, unitVector2 = self.CalcDistanceBetween(W, C, print_it=True)  # [sgb] new call
+        R_C_W = unitVector2 * self.distanceScale  #unit vector from COM of sheep to dog steering point
+        print('RCW=', R_C_W)
 
-        dot = np.dot(R_C_D, R_C_W)
+        dot = np.dot(R_C_D, R_C_W) # vector1 . vector 2 = |vector1||vector1|cos(theta)
+        print('dot =', dot)
         if (dot > 1):
             dot = 1
-        theta_D_C_W = np.arccos(dot)
+        
+        if (dot < -1):
+            dot = -1
+        
+        theta_D_C_W = np.arccos(dot)    #calculate angle between 2 above unit vectors
+        print('theta = ', theta_D_C_W)
         if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0):
             theta_D_C_W = - theta_D_C_W
 
         # R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * self.distanceScale)
-        vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(W, self.position)  # [sgb] new call
-        R_D_W = unitVector
+        vector, rawDistance, distance, unitVector3 = self.CalcDistanceBetween(W, self.position)  # [sgb] new call
+        R_D_W = unitVector3
         R_D_T = np.array([R_C_D[1], -R_C_D[0]])
 
         H_F = 1 - math.exp(-2 * abs(math.degrees(theta_D_C_W)))
@@ -837,8 +872,8 @@ class Agent(pygame.sprite.Sprite):
             #sum = np.add(sum, (self.position - sheep.position) /
             #             (2 * np.linalg.norm(self.position - sheep.position) * self.distanceScale))
 
-            vector, rawDistance, distance, unitVector = self.CalcDistanceTo(sheep.position, print_it=True)  # [sgb] new call
-            sum = np.add(sum, 0.5*unitVector)
+            vector, rawDistance, distance, unitVector4 = self.CalcDistanceTo(sheep.position, print_it=True)  # [sgb] new call
+            sum = np.add(sum, 0.5*unitVector4)
 
 
         F_F = H_F * sum
@@ -846,12 +881,12 @@ class Agent(pygame.sprite.Sprite):
         F_T = H_T * R_D_T
 
         if (cfg['debug_dog_forces']):
-            pygame.draw.line(screen, colours.GREEN, self.position, np.add(
-                self.position, 10 * cfg['dog_repulsion_from_sheep'] * F_F), 8)
+            pygame.draw.line(screen, colours.ORANGE, self.position, np.add(
+                self.position, 10 * cfg['dog_repulsion_from_sheep'] * F_F), 6)
             pygame.draw.line(screen, colours.RED, self.position, np.add(
                 self.position, 10 * cfg['dog_attraction_to_steering_point'] * F_W), 8)
-            pygame.draw.line(screen, colours.BLUE, self.position, np.add(
-                self.position, 10 * cfg['dog_orbital_around_flock'] * F_T), 8)
+            pygame.draw.line(screen, colours.DGREY, self.position, np.add(
+                self.position, 10 * cfg['dog_orbital_around_flock'] * F_T), 10)
         F_H = (cfg['dog_repulsion_from_sheep'] * F_F) + \
             (cfg['dog_attraction_to_steering_point'] * F_W) + \
             (cfg['dog_orbital_around_flock'] * F_T)
@@ -871,7 +906,7 @@ class Agent(pygame.sprite.Sprite):
             N = V.shape[0]
             com = np.sum(vector_list, axis=0)/N
         else:
-            com = np.array([])
+            com = np.array([0.001,0.001])
         return com
     # end function
 

@@ -8,7 +8,7 @@
 // 101: 24549434930,  ||: 46314
 // 102: 27128378286,  ||: 60751
 // 103: 27333326284,  ||: 64743
-int number = 103;
+int number = 100;
 uint32_t numbers[] = {31342, 46314, 60751, 64743};
 
 //  Draws a thingy marker to the screen

@@ -8,5 +8,6 @@ LOG: Sending id: 2
 LOG: publishing marker for robot 2
 LOG: Publishing new robot
 LOG: Sending id: 3
-LOG: publishing marker for robot 3
+LOG: Sending id: 4
+LOG: publishing marker for robot 4
 LOG: Publishing new robot
