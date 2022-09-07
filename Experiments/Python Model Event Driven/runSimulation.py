@@ -197,9 +197,9 @@ def DrawWorld(cfg):
                                 np.array([cfg['world_width'], cfg['world_height']]),
                                 np.array([9, cfg['world_height']])] 
 
+    points = []
     if cfg['use_arena_corner_markers']:
         arena_corners.update(screen)
-        points = []
         non_zero_count = 0
         for arena_corner in arena_corners:
             points.append(arena_corner.position)
@@ -238,12 +238,14 @@ def DrawWorld(cfg):
                                 np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y']]),
                                 np.array([cfg['play_area_x'] + cfg['play_area_width'], cfg['play_area_y'] + cfg['play_area_height']]),
                                 np.array([cfg['play_area_x'], cfg['play_area_y']+cfg['play_area_height']])] 
+        points = cfg['corner_points']
 
     offset = 100
     offsets = [np.array([-offset,-offset]),
                np.array([+offset,-offset]),
                np.array([+offset,+offset]), 
                np.array([-offset,+offset])]
+
     cfg['outer_corner_points'] = [cfg['corner_points'][i] +offsets[i] for i in range(len(points))]        
 
     pygame.draw.line(screen, colours.RED, cfg['outer_corner_points'][0], cfg['outer_corner_points'][1], 3)

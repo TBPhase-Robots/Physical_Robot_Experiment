@@ -459,17 +459,20 @@ class Agent(pygame.sprite.Sprite):
         C = Agent.calcCoM(self, sheep_positions)
         furthest_sheep_position = C
 
-        if len(self.sub_flock)==1:
-            self.state = 'driving'
-            self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
-            self.steering_point = self.driving_point
-        elif (len(self.sub_flock) > 1):
+        #if len(self.sub_flock)==1:
+        #    self.state = 'driving'
+        #    self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
+        #    self.steering_point = self.driving_point
+        #    text_surface = my_font.render(f"{self.id}:driving", False, (0, 0, 0))
+        #    screen.blit(text_surface, self.position)
+        if (len(self.sub_flock) > 0):
             if (self.choice_tick_count == 0):
                 self.driving_point = np.add(C, cfg['driving_distance_from_flock_radius'] * (C - target) / np.linalg.norm(C - target))
                 for sheep in self.sub_flock:
                     if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
                         furthest_sheep_position = sheep.position
                         self.target_sheep = sheep
+            # if it's not an uptake tick then still update furthest sheep position
             try:
                 furthest_sheep_position = self.target_sheep.position
             except:
@@ -482,10 +485,14 @@ class Agent(pygame.sprite.Sprite):
                 if (np.linalg.norm(furthest_sheep_position - C) < cfg['collection_radius']):
                     self.state = 'driving'
                     self.steering_point = self.driving_point
+                    text_surface = my_font.render(f"{self.id}:driving", False, (0, 0, 0))
+                    screen.blit(text_surface, self.position)
                 else:
                     self.state = 'collecting'
                     self.steering_point = np.add(furthest_sheep_position, cfg['collection_distance_from_target_sheep'] * (
                     furthest_sheep_position - C) / np.linalg.norm(furthest_sheep_position - C))
+                    text_surface = my_font.render(f"{self.id}:collecting", False, (0, 0, 0))
+                    screen.blit(text_surface, self.position)
             # steering point is the closest thing to moving towards a target point to which the agent should drive
                 
         else:
@@ -494,7 +501,8 @@ class Agent(pygame.sprite.Sprite):
                 for sheep in flock:
                     if (np.linalg.norm(sheep.position - C) > np.linalg.norm(furthest_sheep_position - C)):
                         furthest_sheep_position = sheep.position
-
+            text_surface = my_font.render(f"{self.id}:unassigned", False, (0, 0, 0))
+            screen.blit(text_surface, self.position)
             outer_flock_radius_point = np.add(C, (np.linalg.norm(C - furthest_sheep_position) + 20) * ((C - target) / np.linalg.norm(C - target)))
             self.steering_point = np.add(outer_flock_radius_point, cfg['driving_distance_from_flock_radius'] * ((C - target) / np.linalg.norm(C - target)))
            
@@ -508,11 +516,13 @@ class Agent(pygame.sprite.Sprite):
 
         # else:
         #     F = np.array([random.uniform(-10,10), random.uniform(-10,10)])
-        print('dog is:', self.state)
         #input('')
+
         F_H = self.calc_F_H_Dog(screen, cfg, self.steering_point, flock)
+        # calculate the repulsion force from other dogs
+        F_D = self.calc_F_D_Dog(screen, cfg, pack)
         # apply force coefficients from the configuration file
-        F = (cfg['dog_forces_with_flock'] * F_H)
+        F = (cfg['dog_forces_with_flock'] * F_H) + (cfg['dog_repulsion_from_dogs'] * F_D)
         
         for sheep in flock:
             vector, rawDistance, distance, unitVector = self.CalcDistanceBetween(self.position, sheep.position)
@@ -572,7 +582,7 @@ class Agent(pygame.sprite.Sprite):
         self.PublishForceToTopic(F, screen)
         print("Published!")
 
-        self.position = np.add(self.position, F/np.linalg.norm(F))
+        self.position = np.add(self.position, 8*F/np.linalg.norm(F))
 
 
 
@@ -783,7 +793,8 @@ class Agent(pygame.sprite.Sprite):
 
     # calculates dog-dog repulsion force vector
 
-    def calc_F_D_Dog(self, pack):
+    def calc_F_D_Dog(self, screen, cfg, pack):
+
         F_D_D = np.zeros(2)
 
         for dog in pack:
@@ -806,6 +817,10 @@ class Agent(pygame.sprite.Sprite):
 
 
         F_D = F_D_D + (0.75 * np.array([F_D_D[1], -F_D_D[0]]))  # [sgb] why "0.75" in here? (see chris' paper) 
+
+        if (cfg['debug_dog_forces']):
+            pygame.draw.line(screen, colours.BROWN, self.position, np.add(
+                self.position, 10 * cfg['dog_repulsion_from_sheep'] * F_D), 6)
         return F_D
     # end function
 
@@ -821,64 +836,72 @@ class Agent(pygame.sprite.Sprite):
     # Calculate Sheep-Dog force interaction
 
     def calc_F_H_Dog(self, screen, cfg, steering_point, flock):
-        sheep_positions = []
-        if (len(self.sub_flock) > 0):
-            for sheep in self.sub_flock:
-                sheep_positions.append(sheep.position)
+        sheep_positions = []    #empty list to store sheep positions
+        if (len(self.sub_flock) > 0): #if sheep in vision range of dog
+            for sheep in self.sub_flock:    #iterates through sheep in vision range of current dog
+                sheep_positions.append(sheep.position)  #add sheep to list
         else:
-            for sheep in flock:
-                sheep_positions.append(sheep.position)
+            for sheep in flock: #iterates through all sheep
+                sheep_positions.append(sheep.position)  #add sheep to list
 
-        if len(sheep_positions) == 0:
-            return np.array([0.001,0.001])
+        if len(sheep_positions) == 0:   #if there are no sheep/list has not been appended for some reason
+            return np.array([0.001,0.001])  #end function, return F_H as small (non zero) np array
 
-        C = Agent.calcCoM(self, sheep_positions)
+        C = Agent.calcCoM(self, sheep_positions)    #calculate centre of mass(COM) of the sheep in the list
         print('C=', C)
-        W = steering_point
+        W = steering_point  #assign steering point to variable W
         print('W=',W)
         #R_C_D = (self.position - C) / (np.linalg.norm(self.position - C) * self.distanceScale)
-        vector, rawDistance, distance, unitVector1 = self.CalcDistanceTo(C, print_it=True)  # [sgb] new call
-        R_C_D = unitVector1 * self.distanceScale #unit vector from COM of sheep to dog position
+        vector, rawDistance, distance, unitVector1 = self.CalcDistanceTo(C, print_it=True)  # calculate distance from COM to current dog position
+        R_C_D = unitVector1
+        #unit vector from COM of sheep to dog position, rescaled to be a unit vector within the code's units of measurement
         print('RCD=', R_C_D)
 
         # R_C_W = (W - C) / (np.linalg.norm(W - C) * self.distanceScale)
-        vector, rawDistance, distance, unitVector2 = self.CalcDistanceBetween(W, C, print_it=True)  # [sgb] new call
-        R_C_W = unitVector2 * self.distanceScale  #unit vector from COM of sheep to dog steering point
+        vector, rawDistance, distance, unitVector2 = self.CalcDistanceBetween(W, C, print_it=True)  # calculate distance from COM to steering point
+        R_C_W = unitVector2 #unit vector from COM of sheep to dog steering point, again rescaled
         print('RCW=', R_C_W)
 
-        dot = np.dot(R_C_D, R_C_W) # vector1 . vector 2 = |vector1||vector1|cos(theta)
+        # vector1 . vector 2 = |vector1||vector2|cos(theta)  dot product of these unit vectors will give a value of cos(theta), as magnitude of each is 1
+        # dot = vector1 . vector 2 =    (1)  x   (1)  x cos(theta) = cos(theta)
+        dot = np.dot(R_C_D*self.distanceScale, R_C_W*self.distanceScale) 
         print('dot =', dot)
-        if (dot > 1):
-            dot = 1
-        
-        if (dot < -1):
-            dot = -1
-        
-        theta_D_C_W = np.arccos(dot)    #calculate angle between 2 above unit vectors
+
+        if abs(dot) >= 1:        #value should be between -1 and 1 unless it is not scaled properly
+            dot = dot*self.distanceScale    #ensures values are rescaled to the code's measurement standard, and unit vectors are not too big
+                
+        theta_D_C_W = np.arccos(dot)    #calculate angle between the 2 above unit vectors
         print('theta = ', theta_D_C_W)
-        if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0):
+        # the cross product of the two vectors finds a unit vector perpendicular to the 2 vectors. Depending on the layout of the vectors 
+        # (eg. which one comes 'before' the other) this unit vector will either be positive or negative. as the angle of the robot is scaled
+        # between -180 to 180(in degrees), this cross product will determine whether the angle obtained is negative or positive
+        if (np.cross([R_C_D[0], R_C_D[1], 0], [R_C_W[0], R_C_W[1], 0])[2] < 0): 
             theta_D_C_W = - theta_D_C_W
 
         # R_D_W = (W - self.position) / (np.linalg.norm(W - self.position) * self.distanceScale)
-        vector, rawDistance, distance, unitVector3 = self.CalcDistanceBetween(W, self.position)  # [sgb] new call
+        vector, rawDistance, distance, unitVector3 = self.CalcDistanceBetween(W, self.position)  # calculate distance from dogs current pos to steering point
         R_D_W = unitVector3
-        R_D_T = np.array([R_C_D[1], -R_C_D[0]])
+        R_D_T = np.array([R_C_D[1], -R_C_D[0]]) #calculates unit vector R_D_T, which is perpendicular to R_C_D
 
+        #H_F is a parameter that governs the strength of dog-sheep repulsion as a dog reaches its steering point (closer to steering point, less force)
         H_F = 1 - math.exp(-2 * abs(math.degrees(theta_D_C_W)))
+        # H_T is a parameter that governs the strength and direction of the orbital force of the dog
         H_T = self.sine_step(theta_D_C_W)
 
-        sum = np.zeros(2)
+        sumF = np.zeros(2)  #empty array that will be updated with all unit vectors from the sheep to the current dog
         for sheep in flock:
             #sum = np.add(sum, (self.position - sheep.position) /
             #             (2 * np.linalg.norm(self.position - sheep.position) * self.distanceScale))
 
             vector, rawDistance, distance, unitVector4 = self.CalcDistanceTo(sheep.position, print_it=True)  # [sgb] new call
-            sum = np.add(sum, 0.5*unitVector4)
+            sumF = np.add(sumF, 0.5 * unitVector4)
 
 
-        F_F = H_F * sum
-        F_W = R_D_W
-        F_T = H_T * R_D_T
+        F_F = H_F * sumF    # repulsion from sheep calculation
+
+        F_W = R_D_W     #   attraction towards steering point calculation
+
+        F_T = H_T * R_D_T   # orbital force calculation
 
         if (cfg['debug_dog_forces']):
             pygame.draw.line(screen, colours.ORANGE, self.position, np.add(
@@ -887,9 +910,10 @@ class Agent(pygame.sprite.Sprite):
                 self.position, 10 * cfg['dog_attraction_to_steering_point'] * F_W), 8)
             pygame.draw.line(screen, colours.DGREY, self.position, np.add(
                 self.position, 10 * cfg['dog_orbital_around_flock'] * F_T), 10)
+
         F_H = (cfg['dog_repulsion_from_sheep'] * F_F) + \
             (cfg['dog_attraction_to_steering_point'] * F_W) + \
-            (cfg['dog_orbital_around_flock'] * F_T)
+            (cfg['dog_orbital_around_flock'] * F_T)         #combining force components
 
         return F_H
     # end function
