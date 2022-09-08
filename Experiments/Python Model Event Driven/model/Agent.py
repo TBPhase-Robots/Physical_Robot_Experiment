@@ -558,14 +558,14 @@ class Agent(pygame.sprite.Sprite):
 
             print(self.id,"maxF = ",maxF)
 
-            F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
-            F_Graze = np.array([random.uniform(-0.01,0.01), random.uniform(-0.01,0.01)])
+            #F_Graze = self.calc_Grazing_Force(self.grazing_direction, maxF, cfg['lambda_Graze'])
+            #F_Graze = np.array([random.uniform(-0.01,0.01), random.uniform(-0.01,0.01)])
 
-            print(self.id,"F_Graze = ",F_Graze)
+            #print(self.id,"F_Graze = ",F_Graze)
 
-            F = F + F_BR + F_Graze
+            F = F + F_BR #+ F_Graze
 
-            print(self.id,"F = ",F, "(F_BR + F_Graze)")
+            #print(self.id,"F = ",F, "(F_BR + F_Graze)")
 
         if (cfg['debug_steering_points']):
             pygame.draw.circle(screen, colours.BLACK, self.steering_point, 8)
@@ -582,7 +582,11 @@ class Agent(pygame.sprite.Sprite):
         self.PublishForceToTopic(F, screen)
         print("Published!")
 
-        self.position = np.add(self.position, 8*F/np.linalg.norm(F))
+        if cfg["event_driven"] and cfg["event_driven_lock_movements"]:      #if using in person robots
+            self.position = np.add(self.position, F/np.linalg.norm(F))      #draw accurate forces to screen (this fixes calculation of forces for current ...
+                                                                            # ... unit vector model)
+        else:                                                               #if onscreen
+            self.position = np.add(self.position, 8*F/np.linalg.norm(F))    #you can make forces as big as you want
 
 
 

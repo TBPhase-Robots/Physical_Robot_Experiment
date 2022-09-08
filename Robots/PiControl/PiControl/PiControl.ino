@@ -24,7 +24,7 @@ Kinematics_c kinematics;
 #define SPEED_SCALE (255.0 / 1.5);
 #define TURNING_MULTIPLIER 2;
 
-#define MAX_SPEED 0.25
+#define MAX_SPEED 0.20
 
 float force_x = 0;
 float force_y = 0;

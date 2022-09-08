@@ -20,12 +20,12 @@
     "event_driven" : true,
     "event_driven_lock_movements" : true,
 
-    "debug_dog_forces" : true,
-    "debug_sheep_forces" : true,
-    "debug_steering_points" : true,
-    "debug_sub_flocks" : true,
-    "debug_sheep_states" : true,
-    "debug_dog_states" : true,
+    "debug_dog_forces" : false,
+    "debug_sheep_forces" : false,
+    "debug_steering_points" : false,
+    "debug_sub_flocks" : false,
+    "debug_sheep_states" : false,
+    "debug_dog_states" : false,
     
     "empowerment_type" : 1,
 
